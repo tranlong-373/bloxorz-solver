@@ -1,0 +1,40 @@
+# CODEOWNERS - fill in GitHub usernames, then remove the leading "# " on each rule.
+# GitHub then auto-requests the owner as reviewer for PRs touching these paths.
+#
+# /bloxorz/model.py              @USERNAME_VT1
+# /bloxorz/stage.py              @USERNAME_VT1
+# /bloxorz/verify.py             @USERNAME_VT1
+# /bloxorz/search/base.py        @USERNAME_VT1
+# /bloxorz/search/bfs.py         @USERNAME_VT1
+# /bloxorz/search/dfs.py         @USERNAME_VT1
+# /benchmark/run.py              @USERNAME_VT1
+# /requirements.txt              @USERNAME_VT1
+# /.github/                      @USERNAME_VT1
+# /tests/search/                 @USERNAME_VT1
+#
+# /bloxorz/engine/               @USERNAME_VT2
+# /tests/engine/                 @USERNAME_VT2
+#
+# /bloxorz/gui/scene/            @USERNAME_VT3
+# /sandbox/                      @USERNAME_VT3
+#
+# /main.py                       @USERNAME_VT4
+# /bloxorz/loader.py             @USERNAME_VT4
+# /bloxorz/gui/app.py            @USERNAME_VT4
+# /bloxorz/gui/ui.py             @USERNAME_VT4
+# /bloxorz/gui/controller.py     @USERNAME_VT4
+# /bloxorz/gui/solver_runner.py  @USERNAME_VT4
+# /bloxorz/gui/fake_scene.py     @USERNAME_VT4
+# /stages/fixtures/              @USERNAME_VT4
+# /stages/original/              @USERNAME_VT4
+# /tools/                        @USERNAME_VT4
+# /README.md                     @USERNAME_VT4
+# /tests/app/                    @USERNAME_VT4
+#
+# /bloxorz/search/cost.py        @USERNAME_VT5
+# /bloxorz/search/ucs.py         @USERNAME_VT5
+# /bloxorz/search/astar.py       @USERNAME_VT5
+# /bloxorz/search/heuristics.py  @USERNAME_VT5
+# /stages/bench/                 @USERNAME_VT5
+# /benchmark/plots.py            @USERNAME_VT5
+# /tests/informed/               @USERNAME_VT5
