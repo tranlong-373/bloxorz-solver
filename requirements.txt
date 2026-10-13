@@ -1,0 +1,6 @@
+# Python >= 3.12 (tested on 3.12; wheels also exist for 3.13 and 3.14 on Windows)
+# Only VT1 edits this file. Need a new library? Ask VT1 on Zalo.
+ursina==8.3.0
+pytest==9.1.1
+matplotlib==3.11.2
+pandas==3.0.6

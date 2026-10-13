@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Benchmark scratch output (final results in results/final/ ARE committed)
+results/tmp/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
