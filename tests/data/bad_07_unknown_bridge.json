@@ -1,0 +1,24 @@
+{
+  "id": "bad_07_unknown_bridge",
+  "group": "G3",
+  "grid": [
+    "#####",
+    "#S#G#",
+    "#####"
+  ],
+  "bridges": [],
+  "switches": [
+    {
+      "id": "sw1",
+      "kind": "soft",
+      "pos": [
+        1,
+        2
+      ],
+      "mode": "toggle",
+      "bridges": [
+        "b99"
+      ]
+    }
+  ]
+}

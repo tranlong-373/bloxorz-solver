@@ -1,0 +1,41 @@
+{
+  "id": "soft_toggle_01",
+  "group": "G3",
+  "source": "team",
+  "note": "Soft toggle switch opens bridge b1",
+  "grid": [
+    "#########",
+    "#S###BBG#",
+    "#########"
+  ],
+  "bridges": [
+    {
+      "id": "b1",
+      "cells": [
+        [
+          1,
+          5
+        ],
+        [
+          1,
+          6
+        ]
+      ],
+      "initially_open": false
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw1",
+      "kind": "soft",
+      "pos": [
+        1,
+        2
+      ],
+      "mode": "toggle",
+      "bridges": [
+        "b1"
+      ]
+    }
+  ]
+}

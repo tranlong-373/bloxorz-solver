@@ -1,0 +1,35 @@
+{
+  "id": "bad_08_switch_not_on_floor",
+  "group": "G3",
+  "grid": [
+    "#####",
+    "#SFG#",
+    "#####"
+  ],
+  "bridges": [
+    {
+      "id": "b1",
+      "cells": [
+        [
+          0,
+          1
+        ]
+      ],
+      "initially_open": true
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw1",
+      "kind": "soft",
+      "pos": [
+        1,
+        2
+      ],
+      "mode": "toggle",
+      "bridges": [
+        "b1"
+      ]
+    }
+  ]
+}
