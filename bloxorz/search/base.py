@@ -81,14 +81,16 @@ def _path_cost(stage: Stage, actions: tuple[Action, ...]) -> float:
     try:
         from .cost import move_cost
         from ..engine import initial_state, step
-    except ImportError:  # task 2.1 / 5.1 not merged yet
+    except ImportError:  # ponytail: fallback until 2.1 + 5.1 merge; remove then
         return float(len(actions))
     s = initial_state(stage)
     total = 0.0
-    for a in actions:
-        s2 = step(stage, s, a).state
-        total += move_cost(stage, s, a, s2)
-        s = s2
+    for i, a in enumerate(actions):
+        r = step(stage, s, a)
+        if r.state is None:
+            raise ValueError(f"action {i}: {r.reason}")
+        total += move_cost(stage, s, a, r.state)
+        s = r.state
     return total
 
 
@@ -120,11 +122,18 @@ def run(algorithm: str, stage: Stage, limits: Limits = Limits(),
         try:
             fn(stage, SearchContext(limits))
             peak = tracemalloc.get_traced_memory()[1]
+        except Exception:  # memory pass is best-effort; keep pass-1 result
+            pass
         finally:
             tracemalloc.stop()
 
     if status != "solved":
         return SearchResult(algorithm, stage.id, status, expanded=expanded,
                             time_s=time_s, peak_mem_bytes=peak, message=message)
+    try:
+        cost = _path_cost(stage, actions)
+    except Exception as e:
+        return SearchResult(algorithm, stage.id, "error", expanded=expanded,
+                            time_s=time_s, message=f"{type(e).__name__}: {e}")
     return SearchResult(algorithm, stage.id, status, actions, len(actions),
-                        _path_cost(stage, actions), expanded, time_s, peak)
+                        cost, expanded, time_s, peak)
