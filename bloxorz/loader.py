@@ -29,9 +29,10 @@ class LevelError(ValueError):
 
 def _fmt_err(path: str | Path, msg: str, pos: Pos | None = None) -> str:
     p_str = Path(path).as_posix()
-    if pos is not None:
-        return f"{p_str}: hàng {pos[0]}, cột {pos[1]}: {msg}"
-    return f"{p_str}: {msg}"
+    # Errors that are not tied to one cell use (0, 0) so every message has the same format
+    if pos is None:
+        pos = (0, 0)
+    return f"{p_str}: hàng {pos[0]}, cột {pos[1]}: {msg}"
 
 
 def _is_valid_pos(p: Any) -> bool:
@@ -58,11 +59,11 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
         errors.append(_fmt_err(path, "Thiếu hoặc sai kiểu trường 'id'"))
     else:
         stem = Path(path).stem
-        if stem not in ("<stage>", "") and not stem.startswith("bad_") and stage_id != stem:
+        if stem not in ("<stage>", "") and stage_id != stem:
             errors.append(_fmt_err(path, f"id '{stage_id}' không trùng tên file '{stem}'"))
 
     group = raw.get("group")
-    if group not in VALID_GROUPS:
+    if not isinstance(group, str) or group not in VALID_GROUPS:
         errors.append(_fmt_err(path, f"Trường 'group' ({group!r}) phải thuộc {sorted(VALID_GROUPS)}"))
 
     # Check grid format
@@ -238,7 +239,7 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
 
         # Validate switch fields by kind
         kind = sw.get("kind")
-        if kind not in VALID_KINDS:
+        if not isinstance(kind, str) or kind not in VALID_KINDS:
             errors.append(
                 _fmt_err(
                     path,
@@ -252,7 +253,7 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
             mode = sw.get("mode")
             if mode is None:
                 errors.append(_fmt_err(path, f"Công tắc {kind} '{sw_id}' thiếu trường 'mode'", sw_pos))
-            elif mode not in VALID_MODES:
+            elif not isinstance(mode, str) or mode not in VALID_MODES:
                 errors.append(
                     _fmt_err(
                         path,
@@ -261,12 +262,14 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
                     )
                 )
 
-            if "set_to" in sw and sw["set_to"] is not None:
-                if sw["set_to"] not in VALID_SET_TO:
+            # set_to is optional (default "open"), but if present it must be "open" or "close"
+            if "set_to" in sw:
+                set_to = sw["set_to"]
+                if not isinstance(set_to, str) or set_to not in VALID_SET_TO:
                     errors.append(
                         _fmt_err(
                             path,
-                            f"Công tắc '{sw_id}' có set_to={sw['set_to']!r} không thuộc {sorted(VALID_SET_TO)}",
+                            f"Công tắc '{sw_id}' có set_to={set_to!r} không thuộc {sorted(VALID_SET_TO)}",
                             sw_pos,
                         )
                     )

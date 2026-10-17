@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import copy
+import json
 from pathlib import Path
 import pytest
 
 from bloxorz.loader import LevelError, list_stages, load_stage, validate
 
-FIXTURES_DIR = Path("stages/fixtures")
-BAD_DATA_DIR = Path("tests/data")
+# Build paths from the repo root so tests also work when run from tests/
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FIXTURES_DIR = REPO_ROOT / "stages" / "fixtures"
+BAD_DATA_DIR = REPO_ROOT / "tests" / "data"
 
 EXPECTED_FIXTURES = [
     "basic_01",
@@ -117,3 +120,56 @@ def test_validator_extra_subcases():
     assert any("set_to='half'" in e for e in errs)
     assert any("thiếu trường 'bridges'" in e for e in errs)
     assert any("thiếu trường 'targets'" in e for e in errs)
+
+
+def _switch_stage(switch: dict) -> dict:
+    return {
+        "id": "sw_stage",
+        "group": "G2",
+        "grid": ["######", "#S#BG#", "######"],
+        "bridges": [{"id": "b1", "cells": [[1, 3]], "initially_open": False}],
+        "switches": [switch],
+    }
+
+
+def _write_stage(tmp_path: Path, raw: dict) -> Path:
+    path = tmp_path / f"{raw['id']}.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    return path
+
+
+def test_missing_set_to_defaults_to_open(tmp_path: Path):
+    raw = _switch_stage({"id": "sw1", "kind": "soft", "pos": [0, 1], "mode": "toggle", "bridges": ["b1"]})
+    stage = load_stage(_write_stage(tmp_path, raw))
+    assert stage.switches[0].set_to == "open"
+
+
+def test_null_set_to_rejected(tmp_path: Path):
+    raw = _switch_stage(
+        {"id": "sw1", "kind": "soft", "pos": [0, 1], "mode": "toggle", "set_to": None, "bridges": ["b1"]}
+    )
+    with pytest.raises(LevelError) as exc_info:
+        load_stage(_write_stage(tmp_path, raw))
+    msg = str(exc_info.value)
+    assert "sw_stage.json" in msg
+    assert "set_to=None" in msg
+
+
+@pytest.mark.parametrize("bad_value", [[], {}, ["G1"], {"a": 1}])
+@pytest.mark.parametrize("field", ["group", "kind", "mode", "set_to"])
+def test_wrong_type_fields_give_level_error(tmp_path: Path, field: str, bad_value):
+    raw = _switch_stage({"id": "sw1", "kind": "heavy", "pos": [0, 1], "mode": "permanent", "bridges": ["b1"]})
+    if field == "group":
+        raw["group"] = bad_value
+    else:
+        raw["switches"][0][field] = bad_value
+
+    # validate() should return messages, not raise TypeError
+    errs = validate(raw, "stages/sw_stage.json")
+    assert any(field in e for e in errs)
+
+    with pytest.raises(LevelError) as exc_info:
+        load_stage(_write_stage(tmp_path, raw))
+    msg = str(exc_info.value)
+    assert "sw_stage.json" in msg
+    assert "hàng" in msg and "cột" in msg
