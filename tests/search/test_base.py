@@ -1,7 +1,12 @@
+import sys
 import threading
 import time
+import tracemalloc
+from types import ModuleType, SimpleNamespace
 
 import pytest
+
+import bloxorz.engine
 
 from bloxorz.model import Action, Direction, Pose, State
 from bloxorz.search.base import ALGORITHMS, Limits, reconstruct, register, run
@@ -85,3 +90,43 @@ def test_reconstruct():
 
 def test_unknown_algorithm(stage):
     assert run("nope", stage).status == "error"
+
+
+def test_memory_pass_abort_keeps_first_result(stage):
+    cancel = threading.Event()
+    calls = []
+
+    @register("_tmc")
+    def solver(st, ctx):
+        calls.append(1)
+        if len(calls) == 2:
+            cancel.set()
+            for _ in range(2000):
+                ctx.tick()
+        return (A,)
+
+    r = run("_tmc", stage, Limits(cancel=cancel), measure_memory=True)
+    assert r.status == "solved" and r.peak_mem_bytes is None
+    assert tracemalloc.is_tracing() is False
+
+
+def _fake_engine(monkeypatch, step):
+    cost = ModuleType("bloxorz.search.cost")
+    cost.move_cost = lambda st, s, a, s2: 1.0
+    monkeypatch.setitem(sys.modules, "bloxorz.search.cost", cost)
+    monkeypatch.setattr(bloxorz.engine, "initial_state", lambda st: 0, raising=False)
+    monkeypatch.setattr(bloxorz.engine, "step", step, raising=False)
+
+
+def test_cost_replay_illegal_action_is_error(stage, monkeypatch):
+    _fake_engine(monkeypatch, lambda st, s, a: SimpleNamespace(state=None, reason="fell"))
+    register("_tcb")(lambda st, ctx: (Action(Direction.UP),))
+    r = run("_tcb", stage)
+    assert r.status == "error" and "fell" in r.message
+
+
+def test_cost_replay_sums_move_cost(stage, monkeypatch):
+    _fake_engine(monkeypatch, lambda st, s, a: SimpleNamespace(state=s + 1, reason=""))
+    register("_tcs")(lambda st, ctx: (A, A))
+    r = run("_tcs", stage)
+    assert r.status == "solved" and r.cost == 2.0
