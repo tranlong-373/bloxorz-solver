@@ -1,0 +1,42 @@
+{
+  "id": "heavy_permanent_01",
+  "group": "G3",
+  "source": "team",
+  "note": "Heavy permanent switch requires standing block",
+  "grid": [
+    "#########",
+    "#S###BBG#",
+    "#########"
+  ],
+  "bridges": [
+    {
+      "id": "b1",
+      "cells": [
+        [
+          1,
+          5
+        ],
+        [
+          1,
+          6
+        ]
+      ],
+      "initially_open": false
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw1",
+      "kind": "heavy",
+      "pos": [
+        1,
+        4
+      ],
+      "mode": "permanent",
+      "set_to": "open",
+      "bridges": [
+        "b1"
+      ]
+    }
+  ]
+}

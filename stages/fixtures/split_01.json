@@ -1,0 +1,32 @@
+{
+  "id": "split_01",
+  "group": "G4",
+  "source": "team",
+  "note": "Split switch teleports two cubes then merges before goal",
+  "grid": [
+    "########",
+    "#S####G#",
+    "########"
+  ],
+  "bridges": [],
+  "switches": [
+    {
+      "id": "sp1",
+      "kind": "split",
+      "pos": [
+        1,
+        4
+      ],
+      "targets": [
+        [
+          1,
+          2
+        ],
+        [
+          1,
+          5
+        ]
+      ]
+    }
+  ]
+}

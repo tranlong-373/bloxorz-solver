@@ -1,0 +1,11 @@
+{
+  "id": "bad_06_bad_start",
+  "group": "G1",
+  "grid": [
+    "#####",
+    "#SSG#",
+    "#####"
+  ],
+  "bridges": [],
+  "switches": []
+}

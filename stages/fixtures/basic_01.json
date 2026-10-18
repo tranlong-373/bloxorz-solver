@@ -1,0 +1,13 @@
+{
+  "id": "basic_01",
+  "group": "G1",
+  "source": "team",
+  "note": "Roll right twice to reach goal",
+  "grid": [
+    "######",
+    "#S##G#",
+    "######"
+  ],
+  "bridges": [],
+  "switches": []
+}

@@ -1,0 +1,30 @@
+{
+  "id": "bad_10_bad_split_targets",
+  "group": "G4",
+  "grid": [
+    "######",
+    "#S##G#",
+    "######"
+  ],
+  "bridges": [],
+  "switches": [
+    {
+      "id": "sp1",
+      "kind": "split",
+      "pos": [
+        1,
+        2
+      ],
+      "targets": [
+        [
+          0,
+          3
+        ],
+        [
+          0,
+          4
+        ]
+      ]
+    }
+  ]
+}
