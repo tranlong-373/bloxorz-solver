@@ -1,0 +1,11 @@
+{
+  "id": "bad_03_invalid_char",
+  "group": "G1",
+  "grid": [
+    "#####",
+    "#SXG#",
+    "#####"
+  ],
+  "bridges": [],
+  "switches": []
+}

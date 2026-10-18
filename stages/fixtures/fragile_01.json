@@ -1,0 +1,13 @@
+{
+  "id": "fragile_01",
+  "group": "G2",
+  "source": "team",
+  "note": "Cross fragile tiles while lying horizontally",
+  "grid": [
+    "######",
+    "#SFFG#",
+    "######"
+  ],
+  "bridges": [],
+  "switches": []
+}

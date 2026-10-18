@@ -1,0 +1,11 @@
+{
+  "id": "bad_02_ragged_grid",
+  "group": "G1",
+  "grid": [
+    "#####",
+    "#S#G#",
+    "###"
+  ],
+  "bridges": [],
+  "switches": []
+}

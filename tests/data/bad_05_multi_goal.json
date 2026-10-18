@@ -1,0 +1,11 @@
+{
+  "id": "bad_05_multi_goal",
+  "group": "G1",
+  "grid": [
+    "#####",
+    "#SGG#",
+    "#####"
+  ],
+  "bridges": [],
+  "switches": []
+}

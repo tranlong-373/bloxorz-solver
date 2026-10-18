@@ -1,0 +1,35 @@
+{
+  "id": "bad_13_bad_switch_fields",
+  "group": "G3",
+  "grid": [
+    "######",
+    "#S#BG#",
+    "######"
+  ],
+  "bridges": [
+    {
+      "id": "b1",
+      "cells": [
+        [
+          1,
+          3
+        ]
+      ],
+      "initially_open": false
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw1",
+      "kind": "soft",
+      "pos": [
+        1,
+        2
+      ],
+      "mode": "invalid_mode",
+      "bridges": [
+        "b1"
+      ]
+    }
+  ]
+}

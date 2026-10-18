@@ -1,0 +1,26 @@
+{
+  "id": "bad_09_bridge_cell_mismatch",
+  "group": "G3",
+  "grid": [
+    "#####",
+    "#SBG#",
+    "#####"
+  ],
+  "bridges": [
+    {
+      "id": "b1",
+      "cells": [
+        [
+          1,
+          2
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "initially_open": false
+    }
+  ],
+  "switches": []
+}

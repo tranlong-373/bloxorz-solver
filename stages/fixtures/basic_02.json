@@ -1,0 +1,16 @@
+{
+  "id": "basic_02",
+  "group": "G1",
+  "source": "team",
+  "note": "L-shaped corridor",
+  "grid": [
+    "######",
+    "#S####",
+    "######",
+    "...###",
+    "...#G#",
+    "...###"
+  ],
+  "bridges": [],
+  "switches": []
+}
