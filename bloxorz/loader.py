@@ -189,7 +189,7 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
                         )
                     )
                 if pos in declared_b_cells:
-                    errors.append(_fmt_err(path, f"Ô cầu {pos} thuộc nhiều cầu khác nhau", pos))
+                    errors.append(_fmt_err(path, f"Ô cầu {pos} bị khai báo nhiều lần trong bridges", pos))
                 declared_b_cells.add(pos)
 
     # Check unreferenced B cells on the grid
@@ -249,6 +249,22 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
             )
             continue
 
+        # set_to is only allowed when mode is "permanent" (missing means "open")
+        if "set_to" in sw:
+            set_to = sw["set_to"]
+            if sw.get("mode") != "permanent":
+                errors.append(
+                    _fmt_err(path, f"Công tắc '{sw_id}' chỉ được ghi 'set_to' khi mode là 'permanent'", sw_pos)
+                )
+            elif not isinstance(set_to, str) or set_to not in VALID_SET_TO:
+                errors.append(
+                    _fmt_err(
+                        path,
+                        f"Công tắc '{sw_id}' có set_to={set_to!r} không thuộc {sorted(VALID_SET_TO)}",
+                        sw_pos,
+                    )
+                )
+
         if kind in ("soft", "heavy"):
             mode = sw.get("mode")
             if mode is None:
@@ -261,18 +277,6 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
                         sw_pos,
                     )
                 )
-
-            # set_to is optional (default "open"), but if present it must be "open" or "close"
-            if "set_to" in sw:
-                set_to = sw["set_to"]
-                if not isinstance(set_to, str) or set_to not in VALID_SET_TO:
-                    errors.append(
-                        _fmt_err(
-                            path,
-                            f"Công tắc '{sw_id}' có set_to={set_to!r} không thuộc {sorted(VALID_SET_TO)}",
-                            sw_pos,
-                        )
-                    )
 
             sw_bridges = sw.get("bridges")
             if (
@@ -293,7 +297,8 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
                         )
 
         elif kind == "split":
-            if sw.get("mode") is not None or sw.get("bridges"):
+            # split must not declare mode or bridges at all, even as null or []
+            if "mode" in sw or "bridges" in sw:
                 errors.append(
                     _fmt_err(path, f"Công tắc split '{sw_id}' không được khai báo 'mode' hoặc 'bridges'", sw_pos)
                 )
@@ -336,7 +341,7 @@ def load_stage(path: str | Path) -> Stage:
     file_path = Path(path)
     try:
         text = file_path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise LevelError(_fmt_err(file_path, f"Không thể đọc file: {exc}")) from exc
 
     # Parse JSON and catch syntax errors

@@ -68,9 +68,19 @@ def test_13_bad_stage_files_rejected(filename: str, expected_keyword: str):
     with pytest.raises(LevelError) as exc_info:
         load_stage(path)
     msg = str(exc_info.value)
+    # Each bad file should only break one rule so the test is easy to read
+    assert len(exc_info.value.errors) == 1
     assert filename in msg
     assert "hàng" in msg and "cột" in msg
     assert expected_keyword in msg
+
+
+def test_non_utf8_file_gives_level_error(tmp_path: Path):
+    path = tmp_path / "bad_utf8.json"
+    path.write_bytes(b'{"id": "bad_utf8", \xff}')
+    with pytest.raises(LevelError) as exc_info:
+        load_stage(path)
+    assert "bad_utf8.json" in str(exc_info.value)
 
 
 def test_validator_extra_subcases():
@@ -139,20 +149,47 @@ def _write_stage(tmp_path: Path, raw: dict) -> Path:
 
 
 def test_missing_set_to_defaults_to_open(tmp_path: Path):
-    raw = _switch_stage({"id": "sw1", "kind": "soft", "pos": [0, 1], "mode": "toggle", "bridges": ["b1"]})
+    raw = _switch_stage({"id": "sw1", "kind": "heavy", "pos": [0, 1], "mode": "permanent", "bridges": ["b1"]})
     stage = load_stage(_write_stage(tmp_path, raw))
     assert stage.switches[0].set_to == "open"
 
 
+def test_permanent_set_to_close_is_kept(tmp_path: Path):
+    raw = _switch_stage(
+        {"id": "sw1", "kind": "heavy", "pos": [0, 1], "mode": "permanent", "set_to": "close", "bridges": ["b1"]}
+    )
+    stage = load_stage(_write_stage(tmp_path, raw))
+    assert stage.switches[0].set_to == "close"
+
+
 def test_null_set_to_rejected(tmp_path: Path):
     raw = _switch_stage(
-        {"id": "sw1", "kind": "soft", "pos": [0, 1], "mode": "toggle", "set_to": None, "bridges": ["b1"]}
+        {"id": "sw1", "kind": "heavy", "pos": [0, 1], "mode": "permanent", "set_to": None, "bridges": ["b1"]}
     )
     with pytest.raises(LevelError) as exc_info:
         load_stage(_write_stage(tmp_path, raw))
     msg = str(exc_info.value)
     assert "sw_stage.json" in msg
     assert "set_to=None" in msg
+
+
+@pytest.mark.parametrize(
+    "switch",
+    [
+        {"id": "sw1", "kind": "soft", "pos": [0, 1], "mode": "toggle", "set_to": "open", "bridges": ["b1"]},
+        {"id": "sp1", "kind": "split", "pos": [0, 1], "set_to": "open", "targets": [[0, 0], [2, 0]]},
+    ],
+)
+def test_set_to_only_allowed_for_permanent(switch: dict):
+    errs = validate(_switch_stage(switch), "stages/sw_stage.json")
+    assert any("chỉ được ghi 'set_to'" in e for e in errs)
+
+
+@pytest.mark.parametrize(("key", "value"), [("bridges", {}), ("mode", None)])
+def test_split_must_not_declare_mode_or_bridges(key: str, value):
+    switch = {"id": "sp1", "kind": "split", "pos": [0, 1], "targets": [[0, 0], [2, 0]], key: value}
+    errs = validate(_switch_stage(switch), "stages/sw_stage.json")
+    assert any("không được khai báo 'mode' hoặc 'bridges'" in e for e in errs)
 
 
 @pytest.mark.parametrize("bad_value", [[], {}, ["G1"], {"a": 1}])

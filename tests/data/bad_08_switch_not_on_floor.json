@@ -2,7 +2,7 @@
   "id": "bad_08_switch_not_on_floor",
   "group": "G3",
   "grid": [
-    "#####",
+    "#B###",
     "#SFG#",
     "#####"
   ],
