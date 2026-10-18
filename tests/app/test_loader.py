@@ -61,6 +61,7 @@ def test_list_stages_returns_sorted_8_fixtures():
         ("bad_11_duplicate_id.json", "bị trùng"),
         ("bad_12_grid_too_large.json", "vượt quá giới hạn"),
         ("bad_13_bad_switch_fields.json", "mode="),
+        ("bad_14_unknown_field.json", "Trường lạ"),
     ],
 )
 def test_13_bad_stage_files_rejected(filename: str, expected_keyword: str):
@@ -210,3 +211,31 @@ def test_wrong_type_fields_give_level_error(tmp_path: Path, field: str, bad_valu
     msg = str(exc_info.value)
     assert "sw_stage.json" in msg
     assert "hàng" in msg and "cột" in msg
+
+
+@pytest.mark.parametrize("kind", ["soft", "heavy"])
+def test_soft_and_heavy_must_not_declare_targets(kind: str):
+    switch = {
+        "id": "sw1",
+        "kind": kind,
+        "pos": [0, 1],
+        "mode": "toggle" if kind == "soft" else "permanent",
+        "bridges": ["b1"],
+        "targets": [[0, 0], [2, 0]],
+    }
+    errs = validate(_switch_stage(switch), "stages/sw_stage.json")
+    assert any("không được khai báo 'targets'" in e for e in errs)
+
+
+def test_unknown_fields_in_bridge_and_switch():
+    base = {
+        "id": "sample",
+        "group": "G3",
+        "grid": ["######", "#S#BG#", "######"],
+        "bridges": [{"id": "b1", "cells": [[1, 3]], "initially_open": False, "extra_b": 123}],
+        "switches": [{"id": "sw1", "kind": "split", "pos": [0, 1], "targets": [[0, 0], [2, 0]], "extra_sw": True}],
+    }
+    errs = validate(base, "stages/sample.json")
+    assert any("Cầu 'b1' có trường lạ không hợp lệ: 'extra_b'" in e for e in errs)
+    assert any("Công tắc 'sw1' có trường lạ không hợp lệ: 'extra_sw'" in e for e in errs)
+

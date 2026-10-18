@@ -16,6 +16,10 @@ VALID_SET_TO = {"open", "close"}
 MAX_ROWS = 12
 MAX_COLS = 20
 
+ALLOWED_STAGE_FIELDS = {"id", "group", "grid", "bridges", "switches", "source", "note"}
+ALLOWED_BRIDGE_FIELDS = {"id", "cells", "initially_open"}
+ALLOWED_SWITCH_FIELDS = {"id", "kind", "pos", "mode", "set_to", "bridges", "targets"}
+
 
 class LevelError(ValueError):
     """Raised when a stage JSON file fails syntax or validation checks."""
@@ -52,6 +56,10 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
     if not isinstance(raw, dict):
         errors.append(_fmt_err(path, "Dữ liệu JSON gốc phải là một object (dict)"))
         return errors
+
+    for k in sorted(raw.keys()):
+        if k not in ALLOWED_STAGE_FIELDS:
+            errors.append(_fmt_err(path, f"Trường lạ không hợp lệ ở cấp màn: {k!r}"))
 
     # Check id and group
     stage_id = raw.get("id")
@@ -157,6 +165,10 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
             else (0, 0)
         )
 
+        for k in sorted(b.keys()):
+            if k not in ALLOWED_BRIDGE_FIELDS:
+                errors.append(_fmt_err(path, f"Cầu '{b_id}' có trường lạ không hợp lệ: {k!r}", first_pos))
+
         if not isinstance(b_id, str) or not b_id.strip():
             errors.append(_fmt_err(path, "Cầu thiếu trường 'id' hợp lệ", first_pos))
         else:
@@ -213,6 +225,10 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
         raw_pos = sw.get("pos")
         sw_pos: Pos = (raw_pos[0], raw_pos[1]) if _is_valid_pos(raw_pos) else (0, 0)
 
+        for k in sorted(sw.keys()):
+            if k not in ALLOWED_SWITCH_FIELDS:
+                errors.append(_fmt_err(path, f"Công tắc '{sw_id}' có trường lạ không hợp lệ: {k!r}", sw_pos))
+
         if not isinstance(sw_id, str) or not sw_id.strip():
             errors.append(_fmt_err(path, "Công tắc thiếu trường 'id' hợp lệ", sw_pos))
         else:
@@ -266,6 +282,11 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
                 )
 
         if kind in ("soft", "heavy"):
+            if "targets" in sw:
+                errors.append(
+                    _fmt_err(path, f"Công tắc {kind} '{sw_id}' không được khai báo 'targets'", sw_pos)
+                )
+
             mode = sw.get("mode")
             if mode is None:
                 errors.append(_fmt_err(path, f"Công tắc {kind} '{sw_id}' thiếu trường 'mode'", sw_pos))

@@ -1,0 +1,11 @@
+{
+  "id": "bad_14_unknown_field",
+  "group": "G1",
+  "grid": [
+    "#####",
+    "#S#G#",
+    "#####"
+  ],
+  "bridges": [],
+  "switchs": []
+}
