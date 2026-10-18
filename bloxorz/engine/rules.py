@@ -1,1 +1,149 @@
-"""Game rules: ROLL table, footprint, step, successors, initial_state, is_goal. Owner: VT2 (tasks 2.1, 2.2)."""
+"""Basic Bloxorz engine (task 2.1): roll, support checks, and victory.
+
+Core data types are defined here so no separate models.py is needed.
+Fragile tiles, switch activation, and split/merge are reserved for later tasks.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+
+from bloxorz.model import Action, Direction, Pos, Pose, State
+from bloxorz.stage import Stage
+
+
+
+
+class Outcome(Enum):
+    """Outcome of a single attempted move."""
+
+    MOVED = "moved"
+    ILLEGAL = "illegal"
+
+
+
+
+
+
+
+
+
+
+
+
+@dataclass(frozen=True)
+class StepResult:
+
+    outcome: Outcome
+    state: State | None
+    reason: str = ""
+    events: tuple[str, ...] = ()
+
+
+ROLL: dict[tuple[Pose, Direction], tuple[Pose, int, int]] = {
+    (Pose.STANDING, Direction.UP): (Pose.VERTICAL, -2, 0),
+    (Pose.STANDING, Direction.DOWN): (Pose.VERTICAL, +1, 0),
+    (Pose.STANDING, Direction.LEFT): (Pose.HORIZONTAL, 0, -2),
+    (Pose.STANDING, Direction.RIGHT): (Pose.HORIZONTAL, 0, +1),
+    (Pose.HORIZONTAL, Direction.UP): (Pose.HORIZONTAL, -1, 0),
+    (Pose.HORIZONTAL, Direction.DOWN): (Pose.HORIZONTAL, +1, 0),
+    (Pose.HORIZONTAL, Direction.LEFT): (Pose.STANDING, 0, -1),
+    (Pose.HORIZONTAL, Direction.RIGHT): (Pose.STANDING, 0, +2),
+    (Pose.VERTICAL, Direction.UP): (Pose.STANDING, -1, 0),
+    (Pose.VERTICAL, Direction.DOWN): (Pose.STANDING, +2, 0),
+    (Pose.VERTICAL, Direction.LEFT): (Pose.VERTICAL, 0, -1),
+    (Pose.VERTICAL, Direction.RIGHT): (Pose.VERTICAL, 0, +1),
+}
+
+
+def footprint(state: State) -> tuple[Pos, ...]:
+    """Occupied cells for standing, lying, or (future) split states."""
+    r, c = state.pos
+    if state.pose is Pose.STANDING:
+        return (state.pos,)
+    if state.pose is Pose.HORIZONTAL:
+        return (state.pos, (r, c + 1))
+    if state.pose is Pose.VERTICAL:
+        return (state.pos, (r + 1, c))
+    if state.pose is None and state.cube2 is not None:
+        return (state.pos, state.cube2)
+    raise ValueError("Invalid state: split pose requires cube2")
+
+
+def _check_support(
+    stage: Stage, cells: tuple[Pos, ...], bridges_open: frozenset[str]
+) -> str | None:
+    """Return 'fell' when any occupied cell lacks support.
+
+    stage.cell(p) returns '.' for out-of-bounds and for normal void cells.
+    Bridge locations use stage.bridge_at as an overlay: when open they
+    support the block even if the underlying grid character is '.'.
+    At this stage normal tiles '#', 'F', 'G' all support the block.
+    """
+    for p in cells:
+        bridge_id = stage.bridge_at.get(p)
+        if bridge_id is not None:
+            if bridge_id not in bridges_open:
+                return "fell"
+            continue
+        if stage.cell(p) == ".":
+            return "fell"
+    return None
+
+
+def initial_state(stage: Stage) -> State:
+    """Intact upright block at the stage start with initial bridge states."""
+    return State(Pose.STANDING, stage.start, None, stage.initial_bridges_open())
+
+
+def step(stage: Stage, state: State, action: Action) -> StepResult:
+    """Roll one step, rejecting moves that are not fully supported."""
+    if state.pose is None:
+        raise NotImplementedError("tách/ghép: task 2.4")
+
+    # Step 1: deterministic change of position and orientation.
+    new_pose, dr, dc = ROLL[(state.pose, action.direction)]
+    new = State(
+        new_pose,
+        (state.pos[0] + dr, state.pos[1] + dc),
+        None,
+        state.bridges_open,
+    )
+
+    # Step 2: support from floor, goal, fragile tiles, and open bridges.
+    reason = _check_support(stage, footprint(new), new.bridges_open)
+    if reason:
+        return StepResult(Outcome.ILLEGAL, None, reason)
+
+    # Step 3: TODO task 2.2 - fragile tile breaking.
+    # Steps 4-5: TODO task 2.3 - switches, bridges, and revalidation.
+    # Step 6: TODO task 2.4 - split, control, and merge unit cubes.
+
+    # Step 7: valid roll. Goal detection is available via is_goal().
+    return StepResult(Outcome.MOVED, new)
+
+
+def successors(stage: Stage, state: State) -> list[tuple[Action, State]]:
+    """All MOVED successors in UP, DOWN, LEFT, RIGHT order."""
+    result: list[tuple[Action, State]] = []
+    for direction in (
+        Direction.UP,
+        Direction.DOWN,
+        Direction.LEFT,
+        Direction.RIGHT,
+    ):
+        action = Action(direction)
+        candidate = step(stage, state, action)
+        if candidate.outcome is Outcome.MOVED and candidate.state is not None:
+            result.append((action, candidate.state))
+    return result
+
+
+def is_goal(stage: Stage, state: State) -> bool:
+    """Win only when the intact block stands upright on the goal."""
+    return (
+        state.pose is Pose.STANDING
+        and state.cube2 is None
+        and state.pos == stage.goal
+    )
