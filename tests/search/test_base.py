@@ -25,7 +25,7 @@ def clean_registry():
 
 @pytest.fixture
 def stage():
-    return Stage("t", "G1", ("###", "##G"), (0, 0), (1, 2))
+    return Stage("t", "G1", ("######", "#####G"), (0, 0), (1, 5))
 
 
 def test_solved(stage):
