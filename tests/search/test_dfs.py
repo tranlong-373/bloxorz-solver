@@ -1,6 +1,13 @@
+from pathlib import Path
+
+import pytest
+
 from bloxorz.engine import initial_state, is_goal, step
+from bloxorz.loader import load_stage
 from bloxorz.search import run
 from bloxorz.stage import Stage
+
+FIXTURES = Path(__file__).resolve().parents[2] / "stages" / "fixtures"
 
 # 3x4 open floor, goal at the top-right. Shortest plan is 2 moves (R, R).
 OPEN = Stage("open", "G1", ("###G", "####", "####"), (0, 0), (0, 3))
@@ -37,3 +44,11 @@ def test_dfs_not_shortest():
     # in that order and dives deep first, so it returns a longer plan.
     r = run("dfs", OPEN)
     assert r.status == "solved" and r.length > 2
+
+
+@pytest.mark.parametrize("name", ["basic_01", "basic_02", "basic_03"])
+def test_dfs_solves_real_fixture(name):
+    stage = load_stage(FIXTURES / f"{name}.json")
+    r = run("dfs", stage)
+    assert r.status == "solved"
+    assert replay_reaches_goal(stage, r.actions)
