@@ -1,6 +1,6 @@
 """Tests for all Bloxorz pose transitions and two edge falls.
 
-Expected engine public API (module ``src.engine``):
+Expected engine public API (module ``bloxorz.engine``):
     Stage, State, Pose, Direction, Action, Outcome, step
 
 The engine is imported inside each test rather than at module import time so

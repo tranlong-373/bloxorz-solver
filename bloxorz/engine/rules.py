@@ -6,74 +6,41 @@ Fragile tiles, switch activation, and split/merge are reserved for later tasks.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Mapping
+
+from bloxorz.model import Action, Direction, Pos, Pose, State
+from bloxorz.stage import Stage
 
 
-Position = tuple[int, int]
-
-
-class Pose(Enum):
-    STANDING = "standing"
-    HORIZONTAL = "horizontal"
-    VERTICAL = "vertical"
-
-
-class Direction(Enum):
-    UP = "up"
-    DOWN = "down"
-    LEFT = "left"
-    RIGHT = "right"
-
-
-@dataclass(frozen=True)
-class Action:
-    direction: Direction
-
-
-@dataclass(frozen=True)
-class State:
-    pose: Pose | None
-    pos: Position
-    cube2: Position | None = None
-    bridges_open: frozenset[str] = field(default_factory=frozenset)
-
-    def __post_init__(self) -> None:
-        # A normalized, immutable bridge set keeps State hashable for BFS/A*.
-        object.__setattr__(self, "bridges_open", frozenset(self.bridges_open))
-
-
-@dataclass(frozen=True)
-class Stage:
-    id: str
-    group: str
-    grid: tuple[str, ...]
-    start: Position
-    goal: Position
-    # Position -> bridge ID, so a switch can control multiple cells by ID.
-    # A bridge's open/closed status overrides the grid character at that cell.
-    bridge_cells: Mapping[Position, str] = field(default_factory=dict)
-    open_bridges_at_start: frozenset[str] = field(default_factory=frozenset)
-
-    def initial_bridges_open(self) -> frozenset[str]:
-        return frozenset(self.open_bridges_at_start)
 
 
 class Outcome(Enum):
+    """Outcome of a single attempted move."""
+
     MOVED = "moved"
     ILLEGAL = "illegal"
 
 
+
+
+
+
+
+
+
+
+
+
 @dataclass(frozen=True)
 class StepResult:
+
     outcome: Outcome
     state: State | None
-    reason: str | None = None
+    reason: str = ""
+    events: tuple[str, ...] = ()
 
 
-# (current pose, direction) -> (new pose, delta row, delta col)
-# State.pos is the TOP-LEFT occupied square (not the geometric center).
 ROLL: dict[tuple[Pose, Direction], tuple[Pose, int, int]] = {
     (Pose.STANDING, Direction.UP): (Pose.VERTICAL, -2, 0),
     (Pose.STANDING, Direction.DOWN): (Pose.VERTICAL, +1, 0),
@@ -90,8 +57,8 @@ ROLL: dict[tuple[Pose, Direction], tuple[Pose, int, int]] = {
 }
 
 
-def footprint(state: State) -> tuple[Position, ...]:
-    """Return the board squares occupied by the block (or split cubes)."""
+def footprint(state: State) -> tuple[Pos, ...]:
+    """Occupied cells for standing, lying, or (future) split states."""
     r, c = state.pos
     if state.pose is Pose.STANDING:
         return (state.pos,)
@@ -105,43 +72,37 @@ def footprint(state: State) -> tuple[Position, ...]:
 
 
 def _check_support(
-    stage: Stage, cells: tuple[Position, ...], bridges_open: frozenset[str]
+    stage: Stage, cells: tuple[Pos, ...], bridges_open: frozenset[str]
 ) -> str | None:
-    """Return 'fell' when any occupied cell is void/outside/a closed bridge.
+    """Return 'fell' when any occupied cell lacks support.
 
-    For this task, fragile 'F' and goal 'G' support the block. Fragile
-    breakage is handled in task 2.2; switch activation in task 2.3.
+    stage.cell(p) returns '.' for out-of-bounds and for normal void cells.
+    Bridge locations use stage.bridge_at as an overlay: when open they
+    support the block even if the underlying grid character is '.'.
+    At this stage normal tiles '#', 'F', 'G' all support the block.
     """
-    for r, c in cells:
-        if r < 0 or r >= len(stage.grid):
-            return "fell"
-        if c < 0 or c >= len(stage.grid[r]):
-            return "fell"
-
-        bridge_id = stage.bridge_cells.get((r, c))
+    for p in cells:
+        bridge_id = stage.bridge_at.get(p)
         if bridge_id is not None:
             if bridge_id not in bridges_open:
                 return "fell"
-            # An open bridge supports the block even if its base grid is '.'.
             continue
-
-        if stage.grid[r][c] == ".":
+        if stage.cell(p) == ".":
             return "fell"
-
     return None
 
 
 def initial_state(stage: Stage) -> State:
-    """Start with the intact block standing on the designated start tile."""
+    """Intact upright block at the stage start with initial bridge states."""
     return State(Pose.STANDING, stage.start, None, stage.initial_bridges_open())
 
 
 def step(stage: Stage, state: State, action: Action) -> StepResult:
-    """Perform one deterministic roll, or report a fall (without mutating state)."""
+    """Roll one step, rejecting moves that are not fully supported."""
     if state.pose is None:
         raise NotImplementedError("tách/ghép: task 2.4")
 
-    # Step 1: apply exactly one row of the pose/direction transition table.
+    # Step 1: deterministic change of position and orientation.
     new_pose, dr, dc = ROLL[(state.pose, action.direction)]
     new = State(
         new_pose,
@@ -150,21 +111,21 @@ def step(stage: Stage, state: State, action: Action) -> StepResult:
         state.bridges_open,
     )
 
-    # Step 2: the new footprint must be fully supported.
+    # Step 2: support from floor, goal, fragile tiles, and open bridges.
     reason = _check_support(stage, footprint(new), new.bridges_open)
     if reason:
         return StepResult(Outcome.ILLEGAL, None, reason)
 
-    # Step 3: TODO task 2.2 - fragile tiles when the block stands on 'F'.
-    # Steps 4-5: TODO task 2.3 - activate switches, update bridges, recheck.
-    # Step 6: TODO task 2.4 - split/merge block and active cube control.
+    # Step 3: TODO task 2.2 - fragile tile breaking.
+    # Steps 4-5: TODO task 2.3 - switches, bridges, and revalidation.
+    # Step 6: TODO task 2.4 - split, control, and merge unit cubes.
 
-    # Step 7: valid normal roll.
+    # Step 7: valid roll. Goal detection is available via is_goal().
     return StepResult(Outcome.MOVED, new)
 
 
 def successors(stage: Stage, state: State) -> list[tuple[Action, State]]:
-    """Return legal (action, state) successors in UP, DOWN, LEFT, RIGHT order."""
+    """All MOVED successors in UP, DOWN, LEFT, RIGHT order."""
     result: list[tuple[Action, State]] = []
     for direction in (
         Direction.UP,
@@ -173,12 +134,16 @@ def successors(stage: Stage, state: State) -> list[tuple[Action, State]]:
         Direction.RIGHT,
     ):
         action = Action(direction)
-        transition = step(stage, state, action)
-        if transition.outcome is Outcome.MOVED and transition.state is not None:
-            result.append((action, transition.state))
+        candidate = step(stage, state, action)
+        if candidate.outcome is Outcome.MOVED and candidate.state is not None:
+            result.append((action, candidate.state))
     return result
 
 
 def is_goal(stage: Stage, state: State) -> bool:
-    """Only an intact, upright block over the target hole wins."""
-    return state.pose is Pose.STANDING and state.cube2 is None and state.pos == stage.goal
+    """Win only when the intact block stands upright on the goal."""
+    return (
+        state.pose is Pose.STANDING
+        and state.cube2 is None
+        and state.pos == stage.goal
+    )
