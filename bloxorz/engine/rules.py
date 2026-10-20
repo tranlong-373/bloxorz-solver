@@ -116,7 +116,11 @@ def step(stage: Stage, state: State, action: Action) -> StepResult:
     if reason:
         return StepResult(Outcome.ILLEGAL, None, reason)
 
-    # Step 3: TODO task 2.2 - fragile tile breaking.
+    # step 3: a block standing upright on a fragile tile breaks it and falls.
+    # Lying across fragile tiles is safe (weight is spread over two cells).
+    if new.pose is Pose.STANDING and stage.cell(new.pos) == "F":
+        return StepResult(Outcome.ILLEGAL, None, "fragile_broke")
+    
     # Steps 4-5: TODO task 2.3 - switches, bridges, and revalidation.
     # Step 6: TODO task 2.4 - split, control, and merge unit cubes.
 
