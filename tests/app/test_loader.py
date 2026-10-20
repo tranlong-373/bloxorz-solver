@@ -238,4 +238,62 @@ def test_unknown_fields_in_bridge_and_switch():
     errs = validate(base, "stages/sample.json")
     assert any("Cầu 'b1' có trường lạ không hợp lệ: 'extra_b'" in e for e in errs)
     assert any("Công tắc 'sw1' có trường lạ không hợp lệ: 'extra_sw'" in e for e in errs)
+
+
+def test_split_target_on_start_tile():
+    # split target can be on the start tile 'S'
+    raw = {
+        "id": "split_start",
+        "group": "G4",
+        "grid": ["######", "#S##G#", "######"],
+        "bridges": [],
+        "switches": [
+            {
+                "id": "sp1",
+                "kind": "split",
+                "pos": [0, 2],
+                "targets": [[1, 1], [0, 4]],
+            }
+        ],
+    }
+    errs = validate(raw, "stages/split_start.json")
+    assert not errs
+
+
+def test_multiple_switches_at_same_position(tmp_path: Path):
+    # multiple switches can share the same tile
+    raw = {
+        "id": "multi_sw",
+        "group": "G3",
+        "grid": ["###B##", "#S#BG#", "######"],
+        "bridges": [
+            {"id": "b1", "cells": [[1, 3]], "initially_open": False},
+            {"id": "b2", "cells": [[0, 3]], "initially_open": False},
+        ],
+        "switches": [
+            {
+                "id": "sw1",
+                "kind": "soft",
+                "pos": [0, 2],
+                "mode": "permanent",
+                "set_to": "open",
+                "bridges": ["b1"],
+            },
+            {
+                "id": "sw2",
+                "kind": "heavy",
+                "pos": [0, 2],
+                "mode": "permanent",
+                "set_to": "close",
+                "bridges": ["b2"],
+            },
+        ],
+    }
+    errs = validate(raw, "stages/multi_sw.json")
+    assert not errs
+
+    stage = load_stage(_write_stage(tmp_path, raw))
+    assert (0, 2) in stage.switch_at
+    assert len(stage.switch_at[(0, 2)]) == 2
+
 

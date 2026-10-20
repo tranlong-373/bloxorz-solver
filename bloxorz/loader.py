@@ -214,7 +214,6 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
         errors.append(_fmt_err(path, "Trường 'switches' phải là một list"))
         switches_raw = []
 
-    seen_switch_pos: set[Pos] = set()
 
     for sw in switches_raw:
         if not isinstance(sw, dict):
@@ -249,9 +248,7 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
                         sw_pos,
                     )
                 )
-            if sw_pos in seen_switch_pos:
-                errors.append(_fmt_err(path, f"Có nhiều công tắc đặt cùng vị trí {sw_pos}", sw_pos))
-            seen_switch_pos.add(sw_pos)
+
 
         # Validate switch fields by kind
         kind = sw.get("kind")
@@ -340,11 +337,11 @@ def validate(raw: Any, path: str | Path = "<stage>") -> list[str]:
             for idx, t in enumerate((t1, t2), start=1):
                 if not in_bounds(t):
                     errors.append(_fmt_err(path, f"Công tắc split '{sw_id}' có target {idx} nằm ngoài bàn", t))
-                elif cell_at(t) != "#":
+                elif cell_at(t) not in ("#", "S"):
                     errors.append(
                         _fmt_err(
                             path,
-                            f"Công tắc split '{sw_id}' có target {idx} không phải ô # (đang là '{cell_at(t)}')",
+                            f"Công tắc split '{sw_id}' có target {idx} không phải ô # hoặc S (đang là '{cell_at(t)}')",
                             t,
                         )
                     )

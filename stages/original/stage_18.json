@@ -1,0 +1,152 @@
+{
+  "id": "stage_18",
+  "group": "G3",
+  "grid": [
+    ".......#.......",
+    "####...#.......",
+    "#####..#.......",
+    "##S#####BB##BB#",
+    "#####B..#...#..",
+    "####....#...#..",
+    "#.......#..###.",
+    "#.........##G#.",
+    "#BB#......####."
+  ],
+  "bridges": [
+    {
+      "id": "bridgeA",
+      "cells": [
+        [
+          3,
+          8
+        ],
+        [
+          3,
+          9
+        ]
+      ],
+      "initially_open": false
+    },
+    {
+      "id": "bridgeB",
+      "cells": [
+        [
+          3,
+          12
+        ],
+        [
+          3,
+          13
+        ]
+      ],
+      "initially_open": false
+    },
+    {
+      "id": "bridgeC",
+      "cells": [
+        [
+          8,
+          1
+        ],
+        [
+          8,
+          2
+        ]
+      ],
+      "initially_open": false
+    },
+    {
+      "id": "bridgeD",
+      "cells": [
+        [
+          4,
+          5
+        ]
+      ],
+      "initially_open": false
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw_1",
+      "kind": "soft",
+      "pos": [
+        3,
+        1
+      ],
+      "bridges": [
+        "bridgeA"
+      ],
+      "mode": "permanent",
+      "set_to": "close"
+    },
+    {
+      "id": "sw_2",
+      "kind": "soft",
+      "pos": [
+        5,
+        2
+      ],
+      "bridges": [
+        "bridgeB",
+        "bridgeC"
+      ],
+      "mode": "permanent",
+      "set_to": "close"
+    },
+    {
+      "id": "sw_3",
+      "kind": "soft",
+      "pos": [
+        0,
+        7
+      ],
+      "bridges": [
+        "bridgeA"
+      ],
+      "mode": "permanent",
+      "set_to": "open"
+    },
+    {
+      "id": "sw_4",
+      "kind": "soft",
+      "pos": [
+        6,
+        8
+      ],
+      "bridges": [
+        "bridgeB",
+        "bridgeC"
+      ],
+      "mode": "permanent",
+      "set_to": "open"
+    },
+    {
+      "id": "sw_5",
+      "kind": "heavy",
+      "pos": [
+        8,
+        3
+      ],
+      "bridges": [
+        "bridgeD"
+      ],
+      "mode": "permanent",
+      "set_to": "open"
+    },
+    {
+      "id": "sw_6",
+      "kind": "soft",
+      "pos": [
+        1,
+        2
+      ],
+      "bridges": [
+        "bridgeB",
+        "bridgeC"
+      ],
+      "mode": "permanent",
+      "set_to": "close"
+    }
+  ]
+}

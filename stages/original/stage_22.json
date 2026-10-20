@@ -1,0 +1,102 @@
+{
+  "id": "stage_22",
+  "group": "G3",
+  "grid": [
+    ".....##....###",
+    "...######..#G#",
+    "##############",
+    "#S###..#####B.",
+    "###......###..",
+    ".#........#...",
+    ".#........#...",
+    ".#B......B#...",
+    ".##......##...",
+    "..#......#...."
+  ],
+  "bridges": [
+    {
+      "id": "bridgeA",
+      "cells": [
+        [
+          3,
+          12
+        ]
+      ],
+      "initially_open": false
+    },
+    {
+      "id": "bridgeB",
+      "cells": [
+        [
+          7,
+          2
+        ]
+      ],
+      "initially_open": false
+    },
+    {
+      "id": "bridgeC",
+      "cells": [
+        [
+          7,
+          9
+        ]
+      ],
+      "initially_open": true
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw_1",
+      "kind": "heavy",
+      "pos": [
+        9,
+        9
+      ],
+      "bridges": [
+        "bridgeB"
+      ],
+      "mode": "toggle"
+    },
+    {
+      "id": "sw_2",
+      "kind": "heavy",
+      "pos": [
+        9,
+        2
+      ],
+      "bridges": [
+        "bridgeA"
+      ],
+      "mode": "toggle"
+    },
+    {
+      "id": "sw_3",
+      "kind": "soft",
+      "pos": [
+        3,
+        4
+      ],
+      "bridges": [
+        "bridgeA",
+        "bridgeB"
+      ],
+      "mode": "permanent",
+      "set_to": "close"
+    },
+    {
+      "id": "sw_4",
+      "kind": "soft",
+      "pos": [
+        2,
+        6
+      ],
+      "bridges": [
+        "bridgeA",
+        "bridgeB"
+      ],
+      "mode": "permanent",
+      "set_to": "close"
+    }
+  ]
+}

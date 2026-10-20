@@ -1,0 +1,91 @@
+{
+  "id": "stage_26",
+  "group": "G4",
+  "grid": [
+    ".....####....#",
+    ".....######..#",
+    "....#######..#",
+    "##BB####..####",
+    "###B..#...##..",
+    "###...#...S...",
+    ".#....###.....",
+    ".#....#G#B....",
+    "......###....."
+  ],
+  "bridges": [
+    {
+      "id": "bridgeA",
+      "cells": [
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "initially_open": true
+    },
+    {
+      "id": "bridgeB",
+      "cells": [
+        [
+          4,
+          3
+        ],
+        [
+          7,
+          9
+        ]
+      ],
+      "initially_open": false
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw_1",
+      "kind": "heavy",
+      "pos": [
+        7,
+        1
+      ],
+      "bridges": [
+        "bridgeB"
+      ],
+      "mode": "permanent",
+      "set_to": "open"
+    },
+    {
+      "id": "sw_2",
+      "kind": "soft",
+      "pos": [
+        1,
+        7
+      ],
+      "bridges": [
+        "bridgeA"
+      ],
+      "mode": "permanent",
+      "set_to": "close"
+    },
+    {
+      "id": "sw_3",
+      "kind": "split",
+      "pos": [
+        0,
+        13
+      ],
+      "targets": [
+        [
+          3,
+          12
+        ],
+        [
+          5,
+          10
+        ]
+      ]
+    }
+  ]
+}
