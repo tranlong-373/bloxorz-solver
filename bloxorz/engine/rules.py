@@ -12,6 +12,7 @@ from enum import Enum
 from bloxorz.model import Action, Direction, Pos, Pose, State
 from bloxorz.stage import Stage
 
+from .switches import apply_switches
 
 
 
@@ -121,11 +122,23 @@ def step(stage: Stage, state: State, action: Action) -> StepResult:
     if new.pose is Pose.STANDING and stage.cell(new.pos) == "F":
         return StepResult(Outcome.ILLEGAL, None, "fragile_broke")
     
-    # Steps 4-5: TODO task 2.3 - switches, bridges, and revalidation.
+    # Steps 4-5: activate landed soft/heavy switches, then recheck support.
+    piece = "standing" if new.pose is Pose.STANDING else "lying"
+    updated_bridges, events = apply_switches(
+        stage, footprint(new), piece, new.bridges_open
+    )
+    if _check_support(stage, footprint(new), updated_bridges):
+        # The switch closed a bridge under the block. Retain events so
+        # the GUI can show the switch/bridge change followed by the fall.
+        return StepResult(Outcome.ILLEGAL, None, "bridge_closed", events)
+
+    new = State(new.pose, new.pos, new.cube2, updated_bridges)
+
+    
     # Step 6: TODO task 2.4 - split, control, and merge unit cubes.
 
     # Step 7: valid roll. Goal detection is available via is_goal().
-    return StepResult(Outcome.MOVED, new)
+    return StepResult(Outcome.MOVED, new, events=events)
 
 
 def successors(stage: Stage, state: State) -> list[tuple[Action, State]]:
