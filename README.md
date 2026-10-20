@@ -40,3 +40,7 @@ results/          kết quả đo
 tests/            test
 sandbox/          code nháp (không nộp)
 ```
+
+## Nguồn tham khảo
+Bộ 33 màn gốc trong `stages/original/` được chuyển đổi từ dự án [quick_bloxorz](https://github.com/jgordon510/quick_bloxorz) của Jeffrey Gordon (giấy phép Creative Commons Attribution - CC BY).
+

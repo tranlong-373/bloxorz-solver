@@ -1,0 +1,162 @@
+{
+  "id": "stage_16",
+  "group": "G4",
+  "grid": [
+    ".#........###",
+    "###BB###BB#G#",
+    ".#........###",
+    ".............",
+    ".............",
+    "..###...###..",
+    "..#S#######..",
+    "..###...###.."
+  ],
+  "bridges": [
+    {
+      "id": "bridgeA",
+      "cells": [
+        [
+          1,
+          3
+        ],
+        [
+          1,
+          4
+        ]
+      ],
+      "initially_open": false
+    },
+    {
+      "id": "bridgeB",
+      "cells": [
+        [
+          1,
+          8
+        ],
+        [
+          1,
+          9
+        ]
+      ],
+      "initially_open": false
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw_1",
+      "kind": "heavy",
+      "pos": [
+        1,
+        6
+      ],
+      "bridges": [
+        "bridgeB"
+      ],
+      "mode": "permanent",
+      "set_to": "open"
+    },
+    {
+      "id": "sw_2",
+      "kind": "heavy",
+      "pos": [
+        1,
+        5
+      ],
+      "bridges": [
+        "bridgeA"
+      ],
+      "mode": "permanent",
+      "set_to": "open"
+    },
+    {
+      "id": "sw_3",
+      "kind": "split",
+      "pos": [
+        0,
+        1
+      ],
+      "targets": [
+        [
+          1,
+          7
+        ],
+        [
+          1,
+          5
+        ]
+      ]
+    },
+    {
+      "id": "sw_4",
+      "kind": "split",
+      "pos": [
+        1,
+        2
+      ],
+      "targets": [
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "sw_5",
+      "kind": "split",
+      "pos": [
+        6,
+        9
+      ],
+      "targets": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "sw_6",
+      "kind": "split",
+      "pos": [
+        1,
+        0
+      ],
+      "targets": [
+        [
+          1,
+          2
+        ],
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "sw_7",
+      "kind": "split",
+      "pos": [
+        2,
+        1
+      ],
+      "targets": [
+        [
+          2,
+          1
+        ],
+        [
+          1,
+          0
+        ]
+      ]
+    }
+  ]
+}
