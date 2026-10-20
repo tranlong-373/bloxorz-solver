@@ -52,8 +52,15 @@ class Stage:
         return self.grid[p[0]][p[1]] if self.in_bounds(p) else "."
 
     @cached_property
-    def switch_at(self) -> dict[Pos, Switch]:
-        return {s.pos: s for s in self.switches}
+    def switch_at(self) -> dict[Pos, tuple[Switch, ...]]:
+        """Group switches by position, ordered by id within each tuple."""
+        grouped: dict[Pos, list[Switch]] = {}
+        for switch in self.switches:
+            grouped.setdefault(switch.pos, []).append(switch)
+        return {
+            pos: tuple(sorted(switches, key=lambda switch: switch.id))
+            for pos, switches in grouped.items()
+        }
 
     @cached_property
     def bridge_at(self) -> dict[Pos, str]:
