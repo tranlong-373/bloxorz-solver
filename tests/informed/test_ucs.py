@@ -4,6 +4,7 @@ import threading
 import pytest
 
 import bloxorz.search.base
+from bloxorz.engine import initial_state, is_goal, successors
 from bloxorz.loader import load_stage
 from bloxorz.model import Action, Direction, Pose, State
 from bloxorz.search import Limits, run
@@ -205,3 +206,41 @@ def test_ucs_cancel(monkeypatch):
     stage = load_stage(FIXTURES / "basic_03.json")
     r = run("ucs", stage, limits=Limits(cancel=cancel))
     assert r.status == "cancelled"
+
+
+def _brute_force_min_cost(stage, max_depth=12):
+    """Exhaustive search of all action paths up to max_depth."""
+    min_cost = float("inf")
+
+    def dfs_explore(state, current_cost, depth):
+        nonlocal min_cost
+        if is_goal(stage, state):
+            if current_cost < min_cost:
+                min_cost = current_cost
+            return
+        if depth >= max_depth or current_cost >= min_cost:
+            return
+        for a, nxt in successors(stage, state):
+            cost = current_cost + move_cost(stage, state, a, nxt)
+            dfs_explore(nxt, cost, depth + 1)
+
+    dfs_explore(initial_state(stage), 0.0, 0)
+    return min_cost if min_cost < float("inf") else None
+
+
+@pytest.mark.parametrize("name", ["basic_01", "basic_02"])
+def test_ucs_matches_brute_force_on_fixtures(name):
+    stage = load_stage(FIXTURES / f"{name}.json")
+    assert run("ucs", stage).cost == _brute_force_min_cost(stage, max_depth=12)
+
+
+def test_ucs_matches_brute_force_on_two_paths():
+    grid = (
+        "......",
+        ".##FG.",
+        ".#####",
+        ".#####",
+        "......",
+    )
+    stage = Stage("two_paths", "G1", grid, start=(1, 1), goal=(1, 4))
+    assert run("ucs", stage).cost == _brute_force_min_cost(stage, max_depth=12)
