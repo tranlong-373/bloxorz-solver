@@ -145,13 +145,18 @@ def convert_map(map_data: dict[str, Any], stage_num: int) -> dict[str, Any]:
             switch_counter += 1
 
     stage_id = f"stage_{stage_num:02d}"
-    return {
+    stage_data: dict[str, Any] = {
         "id": stage_id,
         "group": group,
         "grid": grid_strings,
         "bridges": bridges_list,
         "switches": switches_list,
     }
+    if stage_num == 30:
+        stage_data["note"] = (
+            "Excluded from active stages and benchmarks: quick_bloxorz source map is missing floor tiles, making the level unsolvable."
+        )
+    return stage_data
 
 
 def convert_all(input_dir: Path, output_dir: Path) -> None:

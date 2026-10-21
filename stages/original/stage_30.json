@@ -1,6 +1,7 @@
 {
   "id": "stage_30",
   "group": "G3",
+  "note": "Excluded from active stages and benchmarks: quick_bloxorz source map is missing floor tiles, making the level unsolvable.",
   "grid": [
     "...#####FF####.",
     "...#G##......#.",
