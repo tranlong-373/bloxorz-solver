@@ -1,7 +1,10 @@
-"""Basic Bloxorz engine (task 2.1): roll, support checks, and victory.
+"""Bloxorz rules engine: rolling, falling, goals, fragile tiles, and switches.
 
-Core data types are defined here so no separate models.py is needed.
-Fragile tiles, switch activation, and split/merge are reserved for later tasks.
+Use shared model types from bloxorz.model and Stage from bloxorz.stage.
+Task 2.1 handles rolling, support, and goal checks; 
+Task 2.2 handles fragile
+floor tiles; 
+Task 2.3 handles soft/heavy switches and bridges. 
 """
 
 from __future__ import annotations

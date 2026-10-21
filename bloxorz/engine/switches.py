@@ -26,25 +26,28 @@ def apply_switches(
     # Flatten the values first, so multiple switches at one cell all fire.
     switches = []
     for p in landed_cells:
-        found = stage.switch_at.get(p)
-        if found is None:
-            continue
-        if isinstance(found, tuple):
-            switches.extend(found)
-        else:
-            switches.append(found)
+        switches.extend(stage.switch_at.get(p, ()))
     switches.sort(key=lambda switch: switch.id)
 
     opened = set(bridges_open)
     events: list[str] = []
 
     for switch in switches:
+        if switch.kind not in ("soft", "heavy", "split"):
+            raise ValueError(f"Invalid kind for switch {switch.id}: {switch.kind!r}")
+
         if switch.kind == "split":
             continue
+
+        if switch.mode not in ("toggle", "permanent"):
+            raise ValueError(f"Invalid mode for switch {switch.id}: {switch.mode!r}")
+
+        if switch.mode == "permanent" and switch.set_to not in ("open", "close"):
+            raise ValueError(f"Invalid set_to for switch {switch.id}: {switch.set_to!r}")
+
         if switch.kind == "heavy" and piece != "standing":
             continue
-        if switch.kind != "soft" and switch.kind != "heavy":
-            continue
+
 
         events.append(f"switch:{switch.id}")
 
@@ -52,10 +55,8 @@ def apply_switches(
             was_open = bridge_id in opened
             if switch.mode == "toggle":
                 should_open = not was_open
-            elif switch.mode == "permanent":
-                should_open = switch.set_to == "open"
             else:
-                raise ValueError(f"Invalid mode for switch {switch.id}: {switch.mode!r}")
+                should_open = switch.set_to == "open"
 
             if should_open == was_open:
                 continue
