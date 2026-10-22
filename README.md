@@ -43,4 +43,5 @@ sandbox/          code nháp (không nộp)
 
 ## Nguồn tham khảo
 Bộ 33 màn gốc trong `stages/original/` được chuyển đổi từ dự án [quick_bloxorz](https://github.com/jgordon510/quick_bloxorz) của Jeffrey Gordon (giấy phép Creative Commons Attribution - CC BY).
+*Lưu ý: Màn 30 tạm thời được loại khỏi danh sách màn hoạt động và benchmark do file map gốc của quick_bloxorz thiếu ô sàn khiến màn chơi không thể giải được (dữ liệu vẫn được giữ trong `stages/original/stage_30.json` để đối chiếu).*
 
