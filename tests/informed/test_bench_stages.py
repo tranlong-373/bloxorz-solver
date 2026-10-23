@@ -8,7 +8,7 @@ import pytest
 from bloxorz.engine import initial_state, step
 from bloxorz.engine.rules import footprint
 from bloxorz.loader import load_stage
-from bloxorz.search import Limits, run
+from bloxorz.search import ALGORITHMS, Limits, run
 from bloxorz.verify import verify_solution
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -102,10 +102,12 @@ def test_group_mechanisms(stage_id):
 # Solvable, and the solution really uses the mechanism of the group
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("algorithm", sorted(ALGORITHMS))
 @pytest.mark.parametrize("stage_id", BENCH_IDS)
-def test_bfs_solves_and_solution_is_valid(stage_id):
+def test_every_solver_solves_and_solution_is_valid(stage_id, algorithm):
+    # Runs every solver already on main (A* is picked up when task 5.2 is merged)
     stage = load_stage(BENCH_DIR / f"{stage_id}.json")
-    r = run("bfs", stage, limits=Limits(timeout_s=60.0))
+    r = run(algorithm, stage, limits=Limits(timeout_s=60.0))
     assert r.status == "solved"
     valid, msg = verify_solution(stage, r.actions)
     assert valid, msg
