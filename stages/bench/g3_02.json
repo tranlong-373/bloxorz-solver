@@ -1,0 +1,114 @@
+{
+  "id": "g3_02",
+  "group": "G3",
+  "source": "original-5",
+  "note": "Original level 5: soft switches only, toggle and permanent open/close switches share the same bridge",
+  "grid": [
+    "...........####",
+    ".####BB######S#",
+    ".####.......###",
+    ".####..........",
+    ".####..........",
+    "...#####BB###..",
+    "..........#####",
+    "###.......#####",
+    "#G###BB######..",
+    "####..........."
+  ],
+  "bridges": [
+    {
+      "id": "bridgeA",
+      "cells": [
+        [
+          1,
+          5
+        ],
+        [
+          1,
+          6
+        ]
+      ],
+      "initially_open": true
+    },
+    {
+      "id": "bridgeB",
+      "cells": [
+        [
+          5,
+          8
+        ],
+        [
+          5,
+          9
+        ]
+      ],
+      "initially_open": true
+    },
+    {
+      "id": "bridgeC",
+      "cells": [
+        [
+          8,
+          5
+        ],
+        [
+          8,
+          6
+        ]
+      ],
+      "initially_open": true
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw_1",
+      "kind": "soft",
+      "pos": [
+        1,
+        8
+      ],
+      "bridges": [
+        "bridgeA"
+      ],
+      "mode": "toggle"
+    },
+    {
+      "id": "sw_2",
+      "kind": "soft",
+      "pos": [
+        5,
+        6
+      ],
+      "bridges": [
+        "bridgeC"
+      ],
+      "mode": "permanent",
+      "set_to": "close"
+    },
+    {
+      "id": "sw_3",
+      "kind": "soft",
+      "pos": [
+        6,
+        14
+      ],
+      "bridges": [
+        "bridgeC"
+      ],
+      "mode": "toggle"
+    },
+    {
+      "id": "sw_4",
+      "kind": "soft",
+      "pos": [
+        3,
+        3
+      ],
+      "bridges": [
+        "bridgeC"
+      ],
+      "mode": "permanent",
+      "set_to": "open"
+    }
+  ]
+}

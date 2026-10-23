@@ -1,0 +1,20 @@
+{
+  "id": "g2_02",
+  "group": "G2",
+  "source": "original-13",
+  "note": "Original level 13: many fragile tiles, the path with fewest moves and the cheapest path are different",
+  "grid": [
+    "###F####F####.",
+    "##........###.",
+    "##.........###",
+    "###...###..#S#",
+    "###FFF#G#..###",
+    "###..F###..#..",
+    "..#..FFFFF##..",
+    "..###FF#FFF...",
+    "...##FFFFFF...",
+    "...###..##...."
+  ],
+  "bridges": [],
+  "switches": []
+}
