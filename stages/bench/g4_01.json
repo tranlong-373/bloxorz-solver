@@ -1,0 +1,38 @@
+{
+  "id": "g4_01",
+  "group": "G4",
+  "source": "original-8",
+  "note": "Original level 8: the split switch sends the two cubes to the top and bottom parts, they have to meet in the middle and merge before going to the goal",
+  "grid": [
+    ".........###...",
+    ".........###...",
+    ".........###...",
+    "######...######",
+    "#S####...####G#",
+    "######...######",
+    ".........###...",
+    ".........###...",
+    ".........###..."
+  ],
+  "bridges": [],
+  "switches": [
+    {
+      "id": "sw_1",
+      "kind": "split",
+      "pos": [
+        4,
+        4
+      ],
+      "targets": [
+        [
+          1,
+          10
+        ],
+        [
+          7,
+          10
+        ]
+      ]
+    }
+  ]
+}
