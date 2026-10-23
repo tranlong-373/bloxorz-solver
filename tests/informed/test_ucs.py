@@ -77,15 +77,29 @@ def test_move_cost_split_moved_cube_on_fragile_penalized():
 
 def test_move_cost_split_cubes_swap_order_in_state():
     # In State, pos < cube2 is always maintained.
-    # Before: Cube 0 at (0, 5), Cube 1 at (2, 2) -> pos=(0, 5), cube2=(2, 2)
-    # Cube 1 moves UP to (0, 1) on 'F'.
-    # After: (0, 1) < (0, 5), so pos=(0, 1), cube2=(0, 5).
-    # Moved cube (at 0, 1) swapped position in State tuple, but must be correctly identified!
-    stage = Stage("test", "G1", ("#F###.", "######", "######"), (0, 0), (0, 5))
-    s1 = State(None, (0, 5), cube2=(2, 2))
+    # Before: Cube 0 at (1, 3), Cube 1 at (2, 1) -> pos=(1, 3), cube2=(2, 1)
+    # Cube 1 moves UP one cell to (1, 1) on 'F' (2 cells away from cube 0, no merge).
+    # After: (1, 1) < (1, 3), so pos=(1, 1), cube2=(1, 3).
+    # Moved cube is now cube 0 in the new State, but must be correctly identified!
+    # TODO: build s2 with engine.step after task 2.4 is merged.
+    stage = Stage("test", "G1", ("####", "#F##", "####"), (0, 0), (0, 3))
+    s1 = State(None, (1, 3), cube2=(2, 1))
     a = Action(Direction.UP, cube=1)
-    s2 = State(None, (0, 1), cube2=(0, 5))
+    s2 = State(None, (1, 1), cube2=(1, 3))
+    assert (s1.pos, s1.cube2) == ((1, 3), (2, 1))
+    assert (s2.pos, s2.cube2) == ((1, 1), (1, 3))  # order swapped
     assert move_cost(stage, s1, a, s2) == 1.0 + FRAGILE_PENALTY
+
+
+def test_move_cost_split_swap_order_resting_cube_on_fragile_not_penalized():
+    # Same move as above, but now the resting cube 0 stands on 'F' at (1, 3)
+    # and cube 1 moves UP onto '#' at (1, 1). After the swap the resting cube
+    # becomes cube2, it must not be counted as the moved piece.
+    stage = Stage("test", "G1", ("####", "###F", "####"), (0, 0), (0, 3))
+    s1 = State(None, (1, 3), cube2=(2, 1))
+    a = Action(Direction.UP, cube=1)
+    s2 = State(None, (1, 1), cube2=(1, 3))
+    assert move_cost(stage, s1, a, s2) == 1.0
 
 
 def test_move_cost_split_merge_onto_normal_floor_with_cube_resting_on_fragile():
