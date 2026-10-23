@@ -47,11 +47,11 @@ class SceneView:
 
     def is_busy(self):
         """Return True while a scene animation is running."""
-        return self._busy
+        return self._busy or self.board.is_busy()
 
     def animate_step(self, before, action, result, on_done):
         """Animate an already validated move from Engine."""
-        if self._busy:
+        if self.is_busy():
             raise RuntimeError("SceneView is already animating")
 
         if result.state is None:
@@ -100,7 +100,7 @@ class SceneView:
     def show_fall(self, before, action, on_done):
         """Animate the block falling after an invalid move."""
 
-        if self._busy:
+        if self.is_busy():
             raise RuntimeError("SceneView is already animating")
 
         # Restore the block to its position before falling.
@@ -126,7 +126,7 @@ class SceneView:
     def show_win(self, on_done):
         """Animate the block sinking into the goal."""
 
-        if self._busy:
+        if self.is_busy():
             raise RuntimeError("SceneView is already animating")
 
         self._busy = True

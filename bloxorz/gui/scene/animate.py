@@ -9,6 +9,17 @@ from bloxorz.model import Direction
 
 
 ROLL_DURATION = 0.25
+FRAGILE_BREAK_DURATION = 0.3
+
+
+def play_fragile_break(tile, on_finished):
+    """Collapse a fragile floor tile after Engine reports it broken."""
+    animation = tile.animate_scale(
+        (tile.scale_x, 0.01, tile.scale_z),
+        duration=FRAGILE_BREAK_DURATION,
+        curve=curve.in_quad,
+    )
+    animation.append(on_finished)
 
 
 def play_roll(block, direction: Direction, on_finished):
