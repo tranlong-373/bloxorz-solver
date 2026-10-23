@@ -34,15 +34,12 @@ class GameController:
     def on_direction(self, d: Direction) -> None:
         """Handle directional movement input from the player."""
         if self.scene.is_busy() or self.status != "playing":
-            print(f"[Controller] Ignored direction: busy={self.scene.is_busy()}, status={self.status}")
             return
         if self.stage is None or self.state is None:
-            print("[Controller] Ignored direction: stage or state is None")
             return
 
         action = Action(direction=d)
         res = step(self.stage, self.state, action)
-        print(f"[Controller] Action {d} -> Outcome: {res.outcome}")
 
         if res.outcome == Outcome.MOVED:
             before = self.state
@@ -50,12 +47,10 @@ class GameController:
             self.state = res.state
             self.scene.show_state(self.state)
             self.scene.animate_step(before, action, res, on_done=self._after_move)
-            print(f"[Controller] MOVED: moves={self.moves}, pos={self.state.pos}, pose={self.state.pose}")
         elif res.outcome == Outcome.ILLEGAL:
             before = self.state
             self.status = "falling"
             self.scene.show_fall(before, action, on_done=lambda: self._set("lost"))
-            print(f"[Controller] ILLEGAL: reason={res.reason}, status=lost")
 
     def _after_move(self) -> None:
         """Check victory condition after a valid move finishes animating."""

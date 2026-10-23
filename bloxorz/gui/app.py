@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from ursina import AmbientLight, DirectionalLight, Entity, Ursina, window
+from ursina import AmbientLight, DirectionalLight, Ursina, window
 
 from bloxorz.gui.controller import GameController
 from bloxorz.gui.scene.view import SceneView
@@ -38,65 +38,38 @@ ARROW_KEYS: dict[str, Direction] = {
 }
 
 
-def handle_input(key: str) -> None:
-    """Process key inputs."""
+def input(key: str) -> None:
+    """Handle global keyboard inputs."""
     global _controller, _ui
     if _controller is None or _ui is None:
         return
 
-    # Debug print so terminal shows every key received
-    if not key.endswith(" up") and not key.endswith(" hold"):
-        print(f"[Key] received: {key!r}")
-
     # Arrow keys and WASD drive manual movement
     if key in ARROW_KEYS:
-        print(f"[Key] -> Direction {ARROW_KEYS[key]}")
         _controller.on_direction(ARROW_KEYS[key])
         return
 
     # 'r' key triggers restart
     if key == "r":
-        print("[Key] -> Restart")
         _controller.restart()
         return
 
     # 'n' key toggles the level selection menu
     if key == "n":
-        print("[Key] -> Toggle Menu")
         _ui.toggle_menu()
         return
 
     # 'escape' closes the menu if open
     if key == "escape":
-        print("[Key] -> Close Menu")
         _ui.close_menu()
         return
 
 
-def handle_update() -> None:
+def update() -> None:
     """Frame update hook to refresh UI texts."""
     global _ui
     if _ui is not None:
         _ui.update()
-
-
-# Global functions for Ursina convention
-def input(key: str) -> None:
-    handle_input(key)
-
-
-def update() -> None:
-    handle_update()
-
-
-class GameHandler(Entity):
-    """Entity listener ensuring input and update hooks are always called by Ursina."""
-
-    def input(self, key: str) -> None:
-        handle_input(key)
-
-    def update(self) -> None:
-        handle_update()
 
 
 def main() -> None:
@@ -107,7 +80,7 @@ def main() -> None:
     window.title = "Bloxorz Solver"
     window.borderless = False
 
-    # Hook into __main__ if loaded from main.py
+    # Hook input and update into __main__ so Ursina dispatches directly without duplicate entities
     if "__main__" in sys.modules:
         main_mod = sys.modules["__main__"]
         main_mod.input = input
@@ -122,9 +95,6 @@ def main() -> None:
     _controller = GameController(scene_view)
     _ui = UI(_controller)
 
-    # Attach handler entity to scene
-    GameHandler()
-
     # Load initial level (prefer basic_01 if available)
     if _ui.stages:
         initial_stage = next(
@@ -133,7 +103,7 @@ def main() -> None:
         )
         _controller.load(initial_stage)
 
-    app.run()
+    app.run(info=False)
 
 
 if __name__ == "__main__":
