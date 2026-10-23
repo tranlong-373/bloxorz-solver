@@ -1,8 +1,11 @@
 """Task 2.4: split switches, individual cubes, merging, and a complete level."""
 
 import pytest
+import json
+
 
 from bloxorz.engine import Outcome, initial_state, is_goal, step, successors
+from bloxorz.loader import load_stage
 from bloxorz.model import Action, Direction, Pose, State
 from bloxorz.stage import Bridge, Stage, Switch
 
@@ -286,3 +289,90 @@ def test_complete_stage_split_move_merge_and_win():
     assert all_events == ["split", "merge"]
     assert state == State(Pose.STANDING, (2, 6))
     assert is_goal(stage, state)
+
+
+def test_split_target_on_start_tile_is_normalized_by_json_loader(tmp_path):
+    """A split target may refer to S; loader makes S a supporting # tile."""
+    stage_data = {
+        "id": "split_target_start",
+        "group": "G4",
+        "grid": [
+            "########",
+            "#S######",
+            "########",
+            "########",
+            "########",
+            "########",
+            "#######G",
+        ],
+        "switches": [{
+            "id": "split1",
+            "kind": "split",
+            "pos": [3, 4],
+            "targets": [[2, 5], [1, 1]],
+        }],
+    }
+    json_path = tmp_path / "split_target_start.json"
+    json_path.write_text(json.dumps(stage_data), encoding="utf-8")
+
+    stage = load_stage(json_path)
+    assert stage.start == (1, 1)
+    assert stage.cell(stage.start) == "#"
+    assert all("S" not in row for row in stage.grid)
+    assert stage.switch_at[(3, 4)][0].targets == ((2, 5), (1, 1))
+
+    # Horizontal (3, 2) -> RIGHT -> standing (3, 4): activate split.
+    result = step(stage, State(Pose.HORIZONTAL, (3, 2)), Action(R))
+    assert_moved(result, State(None, (1, 1), (2, 5)), ("split",))
+    assert result.state.pos < result.state.cube2
+
+
+def test_cube_triggers_all_soft_switches_on_same_cell_in_id_order():
+    """All same-cell switches fire in ID order, regardless of declaration order."""
+    stage = stage_for_split(
+        switches=(
+            Switch("z_second", "soft", (3, 3), mode="toggle", bridges=("b2",)),
+            Switch("a_first", "soft", (3, 3), mode="toggle", bridges=("b1",)),
+        ),
+        bridges=(
+            Bridge("b1", ((1, 1),)),
+            Bridge("b2", ((1, 2),)),
+        ),
+    )
+    assert tuple(s.id for s in stage.switch_at[(3, 3)]) == ("a_first", "z_second")
+
+    result = move(State(None, (3, 2), (3, 6)), stage, R, 0)
+    assert_moved(
+        result,
+        State(None, (3, 3), (3, 6), frozenset({"b1", "b2"})),
+        (
+            "switch:a_first", "bridge:b1:open",
+            "switch:z_second", "bridge:b2:open",
+        ),
+    )
+
+
+def test_multiple_soft_switches_recheck_support_of_stationary_cube():
+    """Closing a bridge under the OTHER cube rejects the move after all switches."""
+    stage = stage_for_split(
+        switches=(
+            Switch("z_close", "soft", (3, 3), mode="toggle", bridges=("b2",)),
+            Switch("a_open", "soft", (3, 3), mode="toggle", bridges=("b1",)),
+        ),
+        bridges=(
+            Bridge("b1", ((1, 1),)),
+            Bridge("b2", ((3, 6),), initially_open=True),
+        ),
+    )
+    before = State(None, (3, 2), (3, 6), frozenset({"b2"}))
+    result = move(before, stage, R, 0)
+
+    assert result.outcome is Outcome.ILLEGAL
+    assert result.state is None
+    assert result.reason == "bridge_closed"
+    assert result.events == (
+        "switch:a_open", "bridge:b1:open",
+        "switch:z_close", "bridge:b2:close",
+    )
+    # No state change on an illegal action, even though events describe switches.
+    assert before.bridges_open == frozenset({"b2"})
