@@ -1,0 +1,14 @@
+{
+  "id": "g2_01",
+  "group": "G2",
+  "source": "team",
+  "note": "Team two-path level: the top row is shorter but crosses fragile tiles, the bottom row is safe but 2 moves longer",
+  "grid": [
+    "...............",
+    ".S######FF###G.",
+    ".############..",
+    "..............."
+  ],
+  "bridges": [],
+  "switches": []
+}

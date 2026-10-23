@@ -1,0 +1,16 @@
+{
+  "id": "g1_02",
+  "group": "G1",
+  "source": "original-3",
+  "note": "Original level 3: floor and void only, the block has to go around a void gap in the middle",
+  "grid": [
+    "......#######..",
+    "####..###..##..",
+    "#########..####",
+    "#S##.......##G#",
+    "####.......####",
+    "............###"
+  ],
+  "bridges": [],
+  "switches": []
+}
