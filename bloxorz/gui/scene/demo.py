@@ -53,8 +53,8 @@ def test_ten_rolls(to_goal=False):
         print("Press R to reset first")
         return
 
-    if to_goal and stage.id != "basic_01":
-        print("The goal test uses basic_01.json")
+    if stage.id != "basic_01":
+        print("The T/G tests use basic_01.json")
         return
 
     # Reset to the initial State.
@@ -65,13 +65,24 @@ def test_ten_rolls(to_goal=False):
     )
     scene_view.show_state(current_state)
 
-    # T: 10 back-and-forth rolls.
-    # G: 8 back-and-forth rolls, then RIGHT twice to Goal.
-    if to_goal:
-        actions = [Direction.RIGHT, Direction.LEFT] * 4
-        actions += [Direction.RIGHT, Direction.RIGHT]
-    else:
-        actions = [Direction.RIGHT, Direction.LEFT] * 5
+    # T/G: Test both rotation axes and all three block poses.
+    # T returns to the start; G ends at Goal.
+    # First 8 moves exercise both rotation axes and VERTICAL pose.
+    actions = [
+        Direction.RIGHT,
+        Direction.UP,
+        Direction.RIGHT,
+        Direction.DOWN,
+        Direction.UP,
+        Direction.LEFT,
+        Direction.DOWN,
+        Direction.LEFT,
+        Direction.RIGHT,
+    ]
+
+    # T returns to the start; G finishes standing on Goal.
+    actions.append(Direction.RIGHT if to_goal else Direction.LEFT)
+
 
     auto_running = True
     completed = 0

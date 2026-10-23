@@ -3,11 +3,15 @@
 Owner: VT3 | Tasks: 3.1, 3.2.
 """
 
+import logging
+
 from ursina import camera
 
 from .animate import play_fall, play_roll, play_win
 from .block import BlockView
 from .board import Board
+
+logger = logging.getLogger(__name__)
 
 
 class SceneView:
@@ -69,15 +73,16 @@ class SceneView:
 
             error = (actual - expected).length()
 
-            print(f"Direction: {action.direction}")
-            print(f"Actual: {actual}")
-            print(f"Expected: {expected}")
-            print(f"Position error: {error:.8f}")
-
-            if error < 0.01:
-                print("ROLL TEST: PASS")
-            else:
-                print("ROLL TEST: FAIL")
+            status = "PASS" if error < 0.01 else "FAIL"
+            logger.debug(
+                "ROLL TEST: %s | direction=%s | actual=%s | "
+                "expected=%s | error=%.8f",
+                status,
+                action.direction.name,
+                actual,
+                expected,
+                error,
+            )
 
             self._busy = False
             on_done()
