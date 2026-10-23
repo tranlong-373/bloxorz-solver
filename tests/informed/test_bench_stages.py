@@ -20,6 +20,14 @@ PLANNED = {"G1": 4, "G2": 3, "G3": 4, "G4": 3, "G5": 3}
 
 BENCH_IDS = sorted(p.stem for p in BENCH_DIR.glob("*.json"))
 
+# Stages expected in the repo so far, add the new ids when the next batch lands
+# (g2_03 from task 2.5, G4-G5 after task 2.4)
+EXPECTED_IDS = [
+    "g1_01", "g1_02", "g1_03", "g1_04",
+    "g2_01", "g2_02",
+    "g3_01", "g3_02", "g3_03", "g3_04",
+]
+
 
 def _raw(stage_id):
     return json.loads((BENCH_DIR / f"{stage_id}.json").read_text(encoding="utf-8"))
@@ -48,6 +56,13 @@ def _fired_switches(stage, results):
 # ---------------------------------------------------------------------------
 # File format: id, group, source, note
 # ---------------------------------------------------------------------------
+
+def test_bench_ids_match_expected():
+    # A missing or unexpected stage file must fail here
+    missing = sorted(set(EXPECTED_IDS) - set(BENCH_IDS))
+    extra = sorted(set(BENCH_IDS) - set(EXPECTED_IDS))
+    assert not missing and not extra, f"missing={missing} extra={extra}"
+
 
 def test_group_sizes_do_not_exceed_plan():
     assert sum(PLANNED.values()) == 17
@@ -156,6 +171,19 @@ def test_two_path_stage(stage_id, bfs_len, bfs_cost, ucs_len, ucs_cost):
     assert r_bfs.length < r_ucs.length
     assert r_ucs.cost < r_bfs.cost
     assert verify_solution(stage, r_ucs.actions)[0]
+
+
+def test_g2_01_ucs_goes_around_fragile_tiles():
+    # Team level: UCS takes the bottom row and never touches F, so every move costs 1.
+    # The detour must be 1-3 moves longer than BFS, 4 or more would cost as much as the +4 penalty
+    stage = load_stage(BENCH_DIR / "g2_01.json")
+    r_bfs = run("bfs", stage)
+    r_ucs = run("ucs", stage)
+
+    results = _replay(stage, r_ucs.actions)
+    assert not any(stage.cell(p) == "F" for r in results for p in footprint(r.state))
+    assert r_ucs.cost == r_ucs.length
+    assert 1 <= r_ucs.length - r_bfs.length <= 3
 
 
 def test_at_least_two_two_path_stages():
