@@ -1,0 +1,72 @@
+{
+  "id": "g3_01",
+  "group": "G3",
+  "source": "original-2",
+  "note": "Original level 2: one soft and one heavy switch (both permanent open), each one opens a bridge on the way",
+  "grid": [
+    "......####..###",
+    "####..####..#G#",
+    "####..####..###",
+    "####..####..###",
+    "#S##BB####BB###",
+    "####..####....."
+  ],
+  "bridges": [
+    {
+      "id": "bridgeA",
+      "cells": [
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          5
+        ]
+      ],
+      "initially_open": false
+    },
+    {
+      "id": "bridgeB",
+      "cells": [
+        [
+          4,
+          10
+        ],
+        [
+          4,
+          11
+        ]
+      ],
+      "initially_open": false
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw_1",
+      "kind": "heavy",
+      "pos": [
+        1,
+        8
+      ],
+      "bridges": [
+        "bridgeB"
+      ],
+      "mode": "permanent",
+      "set_to": "open"
+    },
+    {
+      "id": "sw_2",
+      "kind": "soft",
+      "pos": [
+        2,
+        2
+      ],
+      "bridges": [
+        "bridgeA"
+      ],
+      "mode": "permanent",
+      "set_to": "open"
+    }
+  ]
+}

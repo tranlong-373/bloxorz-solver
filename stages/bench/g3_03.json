@@ -1,0 +1,66 @@
+{
+  "id": "g3_03",
+  "group": "G3",
+  "source": "original-12",
+  "note": "Original level 12: two heavy toggle switches, the block has to stand on them to open the bridges",
+  "grid": [
+    "............#",
+    ".....###..###",
+    ".....#######B",
+    "...#####..##.",
+    "...#G#B...##.",
+    ".#####...####",
+    "##S#.....####",
+    "####..#####..",
+    ".....###.....",
+    ".....###....."
+  ],
+  "bridges": [
+    {
+      "id": "bridgeA",
+      "cells": [
+        [
+          2,
+          12
+        ]
+      ],
+      "initially_open": false
+    },
+    {
+      "id": "bridgeB",
+      "cells": [
+        [
+          4,
+          6
+        ]
+      ],
+      "initially_open": false
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw_1",
+      "kind": "heavy",
+      "pos": [
+        2,
+        6
+      ],
+      "bridges": [
+        "bridgeA"
+      ],
+      "mode": "toggle"
+    },
+    {
+      "id": "sw_2",
+      "kind": "heavy",
+      "pos": [
+        0,
+        12
+      ],
+      "bridges": [
+        "bridgeB"
+      ],
+      "mode": "toggle"
+    }
+  ]
+}

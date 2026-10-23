@@ -2,8 +2,7 @@
 
 Use shared model types from bloxorz.model and Stage from bloxorz.stage.
 Task 2.1 handles rolling, support, and goal checks; 
-Task 2.2 handles fragile
-floor tiles; 
+Task 2.2 handles fragile floor tiles; 
 Task 2.3 handles soft/heavy switches and bridges. 
 """
 
@@ -16,6 +15,7 @@ from bloxorz.model import Action, Direction, Pos, Pose, State
 from bloxorz.stage import Stage
 
 from .switches import apply_switches
+from .split import move_cube, split_on_landing
 
 
 
@@ -102,9 +102,17 @@ def initial_state(stage: Stage) -> State:
 
 
 def step(stage: Stage, state: State, action: Action) -> StepResult:
-    """Roll one step, rejecting moves that are not fully supported."""
+    """Move the block (or a selected cube), applying tiles and switches."""
     if state.pose is None:
-        raise NotImplementedError("tách/ghép: task 2.4")
+        next_state, reason, events = move_cube(
+            stage, state, action, _check_support
+        )
+        if reason:
+            return StepResult(Outcome.ILLEGAL, None, reason, events)
+        return StepResult(Outcome.MOVED, next_state, events=events)
+
+    if action.cube is not None:
+        raise ValueError("An intact block action must use cube=None")
 
     # Step 1: deterministic change of position and orientation.
     new_pose, dr, dc = ROLL[(state.pose, action.direction)]
@@ -138,25 +146,38 @@ def step(stage: Stage, state: State, action: Action) -> StepResult:
     new = State(new.pose, new.pos, new.cube2, updated_bridges)
 
     
-    # Step 6: TODO task 2.4 - split, control, and merge unit cubes.
+    # Step 6: standing on a split switch teleports into two unit cubes.
+    # Teleport destinations do not activate further switches.
+    
+    split_state = split_on_landing(stage, new)
+
+    if split_state is not None:
+        return StepResult(
+            Outcome.MOVED,
+            split_state,
+            events=events + ("split",)
+        )
 
     # Step 7: valid roll. Goal detection is available via is_goal().
     return StepResult(Outcome.MOVED, new, events=events)
 
 
 def successors(stage: Stage, state: State) -> list[tuple[Action, State]]:
-    """All MOVED successors in UP, DOWN, LEFT, RIGHT order."""
+    """All legal moves: U, D, L, R; cube 0 first, then cube 1."""
     result: list[tuple[Action, State]] = []
-    for direction in (
+    directions = (
         Direction.UP,
         Direction.DOWN,
         Direction.LEFT,
         Direction.RIGHT,
-    ):
-        action = Action(direction)
-        candidate = step(stage, state, action)
-        if candidate.outcome is Outcome.MOVED and candidate.state is not None:
-            result.append((action, candidate.state))
+    )
+    cubes = (0, 1) if state.pose is None else (None,)
+    for cube in cubes:
+        for direction in directions:
+            action = Action(direction, cube=cube)
+            candidate = step(stage, state, action)
+            if candidate.outcome is Outcome.MOVED and candidate.state is not None:
+                result.append((action, candidate.state))
     return result
 
 
