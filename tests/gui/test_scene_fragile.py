@@ -90,11 +90,15 @@ def test_stale_fragile_roll_does_not_start_tile_animation(monkeypatch, scene_mod
         (1, 2),
         lambda: events.append("done"),
     )
+    # What load_stage() does: new animation id, new State, scene unlocked.
     scene._animation_id += 1
     scene._state = "new-state"
+    scene._busy = False
     roll_finished[0]()
 
     assert "break" not in events
     assert "done" not in events
-    assert events[-1] == "new-state"
+    # The stale callback leaves the new stage's State and busy flag alone.
+    assert events[-1] == "old-state"
+    assert scene._state == "new-state"
     assert not scene._busy

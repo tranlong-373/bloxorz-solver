@@ -28,7 +28,7 @@ from ursina import (
     window,
 )
 
-from bloxorz.engine.rules import ROLL, Outcome, footprint, is_goal, step
+from bloxorz.engine.rules import Outcome, footprint, is_goal, step
 from bloxorz.loader import load_stage
 from bloxorz.model import Action, Direction, Pose, State
 
@@ -215,36 +215,6 @@ def test_win():
     scene_view.show_win(on_done=finished)
 
 
-def _fragile_cell_for_move(before, action):
-    """Get the landing cell from the Engine transition table for demo display."""
-    if before.pose is None:
-        raise ValueError("Fragile break requires the intact block")
-
-    new_pose, dr, dc = ROLL[(before.pose, action.direction)]
-    if new_pose is not Pose.STANDING:
-        raise ValueError("Engine reported fragile break for a non-standing move")
-
-    cell = (before.pos[0] + dr, before.pos[1] + dc)
-    if stage.cell(cell) != "F":
-        raise ValueError(f"Engine reported fragile break outside F: {cell}")
-    return cell
-
-
-def _show_engine_fall(before, action, result, on_done):
-    """Show an Engine-rejected fall, collapsing F first when reported."""
-    if result.reason == "fragile_broke":
-        cell = _fragile_cell_for_move(before, action)
-        scene_view.show_fragile_fall(
-            before,
-            action,
-            cell,
-            on_done=on_done,
-        )
-        return
-
-    scene_view.show_fall(before, action, on_done=on_done)
-
-
 def test_fragile_break():
     """Use an Engine-validated move that stands upright on an F tile."""
     global current_state, has_fallen
@@ -301,7 +271,7 @@ def test_fragile_break():
         has_fallen = True
         set_status("Fragile tile broke; block fell. Press R to reset.")
 
-    _show_engine_fall(before, action, result, fall_finished)
+    scene_view.show_illegal_step(before, action, result, on_done=fall_finished)
 
 
 def test_fragile_safe_crossing():
@@ -426,7 +396,7 @@ def input(key):
                 has_fallen = True
                 set_status("Fall animation completed. Press R to reset.")
 
-            _show_engine_fall(before, action, result, fall_finished)
+            scene_view.show_illegal_step(before, action, result, on_done=fall_finished)
             return
 
         if result.outcome != Outcome.MOVED or result.state is None:
