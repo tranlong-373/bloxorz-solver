@@ -21,10 +21,14 @@ class SceneView:
         self.stage = None
         self.selected_cube = None
         self._busy = False
+        self._animation_id = 0
+        self._state = None
 
     def load_stage(self, stage, state):
         """Draw the level and initial block."""
+        self._animation_id += 1
         self.stage = stage
+        self._state = state
 
         self.board.build(stage)
         self.show_state(state)
@@ -43,6 +47,7 @@ class SceneView:
 
     def show_state(self, state):
         """Place the block at the supplied State."""
+        self._state = state
         self.block.place(state)
 
     def is_busy(self):
@@ -57,8 +62,11 @@ class SceneView:
         if result.state is None:
             raise ValueError("animate_step requires a valid next State")
 
+        animation_id = self._animation_id
+
         # Always start at the exact old State.
         self.show_state(before)
+        self._state = result.state
         self._busy = True
 
         def finish():
@@ -67,6 +75,12 @@ class SceneView:
             actual = self.block.entity.world_position
 
             # Đặt theo State chính thức của Engine.
+            if animation_id != self._animation_id:
+                if self._state is not None:
+                    self.show_state(self._state)
+                self._busy = False
+                return
+
             self.show_state(result.state)
 
             expected = self.block.entity.world_position
@@ -106,8 +120,14 @@ class SceneView:
         # Restore the block to its position before falling.
         self.show_state(before)
         self._busy = True
+        animation_id = self._animation_id
 
         def finish():
+            if animation_id != self._animation_id:
+                if self._state is not None:
+                    self.show_state(self._state)
+                self._busy = False
+                return
             print("FALL FINISHED:", self.block.entity.position)
 
             self._busy = False
@@ -130,8 +150,14 @@ class SceneView:
             raise RuntimeError("SceneView is already animating")
 
         self._busy = True
+        animation_id = self._animation_id
 
         def finish():
+            if animation_id != self._animation_id:
+                if self._state is not None:
+                    self.show_state(self._state)
+                self._busy = False
+                return
             print("WIN FINISHED:", self.block.entity.position)
             self._busy = False
             on_done()
