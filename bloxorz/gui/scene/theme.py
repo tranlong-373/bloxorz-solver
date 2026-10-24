@@ -1,5 +1,5 @@
 
-"""Colors, cell_to_world, block transform per pose. Owner: VT3 (task 3.1)."""
+"""Colors, cell_to_world, block transform per pose. Owner: VT3 (tasks 3.1, 3.3c)."""
 
 from ursina import color
 from bloxorz.model import Pose, State
@@ -19,6 +19,9 @@ SWITCH_COLORS = {
 }
 
 BLOCK_COLOR = color.rgb32(235, 190, 75)
+# Split cubes keep the block color; the controlled cube is brighter.
+CUBE_COLOR = BLOCK_COLOR
+SELECTED_CUBE_COLOR = color.rgb32(255, 240, 150)
 
 
 def cell_to_world(r: int, c: int):
@@ -37,4 +40,10 @@ def block_transform(state: State):
     if state.pose == Pose.VERTICAL:
         return (c, 0.5, -(r + 0.5)), (1, 1, 2)
 
-    raise ValueError("Split block is not implemented in task 3.1")
+    raise ValueError("A split State has two cubes; use cube_transform")
+
+
+def cube_transform(pos):
+    """Position and scale of one 1x1x1 cube resting on cell pos."""
+    r, c = pos
+    return (c, 0.5, -r), (1, 1, 1)
