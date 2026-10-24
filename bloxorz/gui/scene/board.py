@@ -131,17 +131,27 @@ class Board:
         remaining = len(animations)
         completed = False
 
-        def one_done():
-            nonlocal remaining, completed
-            if completed or generation != self._generation:
-                return
-            remaining -= 1
-            if remaining == 0:
-                completed = True
-                on_done()
+        def callback_for_one_animation():
+            animation_finished = False
+
+            def one_done():
+                nonlocal remaining, completed, animation_finished
+                if (
+                    animation_finished
+                    or completed
+                    or generation != self._generation
+                ):
+                    return
+                animation_finished = True
+                remaining -= 1
+                if remaining == 0:
+                    completed = True
+                    on_done()
+
+            return one_done
 
         for animation in animations:
-            animation.append(one_done)
+            animation.append(callback_for_one_animation())
 
     def _pulse_switch(self, switch_id, on_done, generation):
         entities = self.switch_entities.get(switch_id, ())
