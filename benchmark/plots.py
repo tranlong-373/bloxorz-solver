@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import statistics
+import sys
 from pathlib import Path
 
 ALGOS = ["bfs", "dfs", "ucs", "astar", "astar_manhattan"]
@@ -109,7 +110,7 @@ def md_table(header, rows, left=1):
 
 
 def summary_md(rows):
-    header = ["Thuật toán", "Nhóm", "Giải được", "Thời gian trung vị (ms)", "Bộ nhớ đỉnh trung vị (KB)",
+    header = ["Thuật toán", "Nhóm", "Giải được", "Thời gian trung vị (ms)", "Bộ nhớ đỉnh trung vị (KiB)",
               "Nút mở rộng trung vị", "Số nước trung bình", "Chi phí trung bình"]
     body = [[LABELS.get(s["algorithm"], s["algorithm"]), s["group"], f"{s['solved']}/{s['total']}",
              fmt(s["time_ms_median"], 2), fmt(s["peak_mem_kb_median"]), fmt(s["expanded_median"]),
@@ -119,7 +120,7 @@ def summary_md(rows):
 
 def detail_md(rows):
     header = ["Màn", "Nhóm", "Thuật toán", "Trạng thái", "Số nước", "Chi phí", "Nút mở rộng",
-              "Thời gian (ms)", "Bộ nhớ đỉnh (KB)"]
+              "Thời gian (ms)", "Bộ nhớ đỉnh (KiB)"]
     body = [[d["stage_id"], d["group"], LABELS.get(d["algorithm"], d["algorithm"]), d["status"],
              fmt(d["length"]), fmt(d["cost"]), fmt(d["expanded"]), fmt(d["time_ms_median"], 2),
              fmt(d["peak_mem_kb"])] for d in detail(rows)]
@@ -127,6 +128,8 @@ def detail_md(rows):
 
 
 def write_csv(path, dicts):
+    if not dicts:
+        raise ValueError(f"không có dòng nào để ghi vào {path}")
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(dicts[0]))
         writer.writeheader()
@@ -134,27 +137,40 @@ def write_csv(path, dicts):
             writer.writerow({k: "" if v is None else v for k, v in d.items()})
 
 
-NOTE = ("Số liệu ở các cột thời gian, bộ nhớ, nút mở rộng, số nước, chi phí chỉ tính trên các màn giải được. "
-        "Thời gian là trung vị các lần chạy, bộ nhớ đỉnh đo bằng tracemalloc (KB = 1024 byte, không phải RSS). "
-        "Màn không giải được vẫn giữ trong bảng chi tiết với trạng thái của nó, số nước và chi phí ghi \"–\".\n")
+UNITS = ("Thời gian là trung vị các lần chạy (ms). Bộ nhớ đỉnh đo bằng tracemalloc, đơn vị KiB (1 KiB = 1024 byte), "
+         "không phải RSS.")
+NOTE_SUMMARY = ("Bảng theo nhóm: cột \"Giải được\" đếm số màn solved trên tổng số màn. Các cột thời gian, bộ nhớ, "
+                "nút mở rộng, số nước, chi phí chỉ tính trên các màn giải được, nhóm không có màn nào giải được "
+                "thì ghi \"–\". " + UNITS + "\n")
+NOTE_DETAIL = ("Bảng từng màn: mỗi dòng là 1 lần chạy, kể cả lần không giải được. Lần không giải được vẫn ghi "
+               "nút mở rộng, thời gian, bộ nhớ của chính lần chạy đó (nếu có), còn số nước và chi phí ghi \"–\". "
+               + UNITS + "\n")
 
 
 def make_tables(rows, out, original_rows=None):
+    if not rows:
+        raise ValueError("CSV kết quả không có dòng dữ liệu nào")
+    if original_rows is not None and not original_rows:
+        raise ValueError("CSV màn gốc không có dòng dữ liệu nào")
     out.mkdir(parents=True, exist_ok=True)
-    (out / "summary.md").write_text("# Kết quả theo nhóm\n\n" + NOTE + "\n" + summary_md(rows), encoding="utf-8")
+    (out / "summary.md").write_text("# Kết quả theo nhóm\n\n" + NOTE_SUMMARY + "\n" + summary_md(rows),
+                                    encoding="utf-8")
     write_csv(out / "summary.csv", summary(rows))
-    (out / "detail.md").write_text("# Kết quả từng màn\n\n" + NOTE + "\n" + detail_md(rows), encoding="utf-8")
+    (out / "detail.md").write_text("# Kết quả từng màn\n\n" + NOTE_DETAIL + "\n" + detail_md(rows), encoding="utf-8")
     write_csv(out / "detail.csv", detail(rows))
     written = ["summary.md", "summary.csv", "detail.md", "detail.csv"]
     if original_rows is not None:
         used = [r for r in original_rows if r["stage_id"] != DROPPED]
+        if not used:
+            raise ValueError(f"CSV màn gốc chỉ có {DROPPED}")
         if len(used) != len(original_rows):
             print(f"Bỏ {len(original_rows) - len(used)} dòng của {DROPPED} trong CSV màn gốc")
         n = len({r["stage_id"] for r in used})
         text = ("# Phụ lục: kết quả trên các màn gốc\n\n"
                 f"Nguồn quick_bloxorz có 33 màn. Nhóm dùng {n} màn, `{DROPPED}` bị loại trước khi chạy "
                 "(quyết định nhóm 21/10/2026, map nguồn bị lỗi) nên không có số liệu, không tính vào mẫu số.\n\n"
-                + NOTE + "\n## Theo nhóm\n\n" + summary_md(used) + "\n## Từng màn\n\n" + detail_md(used))
+                "## Theo nhóm\n\n" + NOTE_SUMMARY + "\n" + summary_md(used)
+                + "\n## Từng màn\n\n" + NOTE_DETAIL + "\n" + detail_md(used))
         (out / "original.md").write_text(text, encoding="utf-8")
         written.append("original.md")
     return [out / name for name in written]
@@ -251,9 +267,12 @@ def make_figures(rows, out):
         ("expanded.png", "Số nút mở rộng theo từng màn", "Số nút mở rộng (thang log)", "expanded"),
         ("time.png", "Thời gian tìm theo từng màn (trung vị, có tính xây heuristic)", "Thời gian (ms, thang log)",
          "time_ms_median"),
-        ("memory.png", "Bộ nhớ đỉnh theo từng màn (tracemalloc)", "Bộ nhớ đỉnh (KB, thang log)", "peak_mem_kb"),
+        ("memory.png", "Bộ nhớ đỉnh theo từng màn (tracemalloc)", "Bộ nhớ đỉnh (KiB, thang log)", "peak_mem_kb"),
     ]
     for name, title, ylabel, key in charts:
+        if not algos:
+            print(f"Bỏ qua {name}: CSV không có thuật toán nào trong {', '.join(ALGOS)}")
+            continue
         fig, ax = plt.subplots(figsize=(10, 4.2))
         failed = _grouped_bars(ax, rows, stages, algos, lambda r, key=key: num(r, key), log=True)
         _stage_axis(ax, stages)
@@ -263,8 +282,10 @@ def make_figures(rows, out):
         paths.append(_save(fig, out / name))
         plt.close(fig)
 
-    paths.append(_length_cost(plt, rows, stages, out))
-    paths.append(_heuristics(plt, rows, stages, out))
+    for chart in (_length_cost, _heuristics):
+        path = chart(plt, rows, stages, out)
+        if path is not None:
+            paths.append(path)
     return paths
 
 
@@ -284,6 +305,9 @@ def _two_path_stages(rows):
 
 def _length_cost(plt, rows, stages, out):
     algos = [a for a in ("bfs", "ucs", "astar", "astar_manhattan") if any(r["algorithm"] == a for r in rows)]
+    if not algos:
+        print("Bỏ qua length_cost.png: CSV không có bfs, ucs, astar, astar_manhattan")
+        return None
     two_path = _two_path_stages(rows)
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6.4), sharex=True)
     failed = False
@@ -320,6 +344,10 @@ def _heuristics(plt, rows, stages, out):
         e, eu = num(r, "expanded"), num(u, "expanded")
         return 100 * e / eu if solved(u) and e is not None and eu else None
 
+    # CSV chạy riêng vài thuật toán (vd --algos bfs ucs dfs) thì không có gì để so
+    if not algos or not any(r["algorithm"] == "ucs" for r in rows):
+        print("Bỏ qua heuristics.png: cần có ucs và ít nhất 1 trong astar, astar_manhattan")
+        return None
     fig, ax = plt.subplots(figsize=(10, 4.2))
     failed = _grouped_bars(ax, rows, stages, algos, percent)
     ax.axhline(100, color=INK2, linewidth=1)
@@ -353,7 +381,11 @@ def main(argv=None):
     if original_rows is None:
         print(f"Không thấy {original}, bỏ qua bảng phụ lục màn gốc")
 
-    paths = make_tables(rows, args.out / "tables", original_rows)
+    try:
+        paths = make_tables(rows, args.out / "tables", original_rows)
+    except ValueError as e:
+        print(f"Lỗi: {e}", file=sys.stderr)
+        return 1
     paths += make_figures(rows, args.out / "figures")
     for p in paths:
         print(p)
