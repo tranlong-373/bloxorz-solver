@@ -275,3 +275,95 @@ def test_block_view_toggles_between_block_and_cubes(env):
     block.place(initial_state(stage))
     assert block.entity.enabled
     assert not any(cube.enabled for cube in block.cubes)
+
+
+def test_highlight_follows_swapped_cube_before_switch_events_finish(env):
+    make_scene, timeline, drain = env
+    # Cube 1 at (1,4) moves UP onto soft switch sw1 at (0,4): it now sorts
+    # first, and the move opens bridge b1, so board events are still running.
+    stage = Stage(
+        id="swap_on_switch",
+        group="G4",
+        grid=("######", "######", "B####G"),
+        start=(1, 2),
+        goal=(2, 5),
+        bridges=(Bridge("b1", ((2, 0),)),),
+        switches=(Switch("sw1", "soft", (0, 4), mode="toggle", bridges=("b1",)),),
+    )
+    before = State(None, (1, 1), (1, 4), frozenset())
+    action = Action(U, cube=1)
+    result = step(stage, before, action)
+    assert result.state == State(None, (0, 4), (1, 1), frozenset({"b1"}))
+    assert result.events == ("switch:sw1", "bridge:b1:open")
+
+    scene = make_scene(stage, initial_state(stage))
+    scene.show_state(before)
+    scene.set_selected(1)
+    done = []
+
+    scene.animate_step(before, action, result, lambda: done.append(True))
+
+    # Switch/bridge animations have not finished yet.
+    assert scene.is_busy()
+    assert done == []
+    assert scene.block.cube_cells == [(0, 4), (1, 1)]
+    assert scene.block.cubes[0].color == _theme().SELECTED_CUBE_COLOR
+    assert scene.block.cubes[1].color == _theme().CUBE_COLOR
+
+    drain()
+    assert done == [True]
+    assert scene.block.cubes[0].color == _theme().SELECTED_CUBE_COLOR
+
+
+def test_play_split_ignores_repeated_callback_from_one_cube(env):
+    make_scene, *_ = env
+    stage = load_stage(SPLIT_01)
+    scene = make_scene(stage, initial_state(stage))
+    cubes = scene.block.cubes
+    scene.block.place(State(None, (1, 2), (1, 5)))
+    animate = importlib.import_module("bloxorz.gui.scene.animate")
+    finished = []
+
+    animate.play_split(cubes, lambda: finished.append(True))
+    first, second = cubes[0].animations[-1], cubes[1].animations[-1]
+
+    first.finish()
+    first.finish()
+    assert finished == []
+
+    second.finish()
+    second.finish()
+    assert finished == [True]
+
+
+def test_restart_while_cubes_grow_after_split(env):
+    make_scene, timeline, drain = env
+    stage = load_stage(SPLIT_01)
+    scene = make_scene(stage, initial_state(stage))
+    before = _play(scene, drain, stage, initial_state(stage), Action(R)).state
+    result = step(stage, before, Action(R))
+    assert result.events == ("split",)
+    done = []
+
+    scene.animate_step(before, Action(R), result, lambda: done.append("old"))
+    growing = [cube.animations[-1] for cube in scene.block.cubes]
+    assert scene.is_busy()
+
+    # Restart while both cubes are still growing in.
+    scene.load_stage(stage, initial_state(stage))
+
+    assert not scene.is_busy()
+    assert all(animation.killed for animation in growing)
+    assert scene.block.entity.enabled
+    assert _visible_cubes(scene) == set()
+
+    for animation in growing:
+        animation.finish()
+    assert done == []
+    assert not scene.is_busy()
+
+    # The same split plays normally on the new stage.
+    scene.animate_step(before, Action(R), result, lambda: done.append("new"))
+    drain()
+    assert done == ["new"]
+    assert _visible_cubes(scene) == {(1, 2), (1, 5)}

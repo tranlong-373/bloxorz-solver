@@ -160,6 +160,10 @@ class SceneView:
                 # A cube moved; a merge shows the Engine's whole block.
                 self._follow_selection(before, action, result.state)
                 self.block.place(result.state)
+                if result.state.pose is None:
+                    # place() may have swapped which entity holds which cell;
+                    # recolor now, before the switch/bridge events play.
+                    self.block.highlight(self._selected_pos)
             elif result.state.pose is not None:
                 # Vị trí thực tế của khối sau khi xoay,
                 # trước khi place() đặt lại tọa độ.

@@ -164,11 +164,20 @@ def play_split(cubes, on_finished):
     """Grow the two cubes at the Engine's split targets, then finish once."""
     remaining = len(cubes)
 
-    def one_done():
-        nonlocal remaining
-        remaining -= 1
-        if remaining == 0:
-            on_finished()
+    def callback_for_one_cube():
+        finished = False
+
+        def one_done():
+            nonlocal remaining, finished
+            # A repeated callback from the same cube must not count twice.
+            if finished:
+                return
+            finished = True
+            remaining -= 1
+            if remaining == 0:
+                on_finished()
+
+        return one_done
 
     for cube in cubes:
         target = tuple(cube.scale)
@@ -178,7 +187,7 @@ def play_split(cubes, on_finished):
             duration=SPLIT_DURATION,
             curve=curve.linear,
         )
-        animation.append(one_done)
+        animation.append(callback_for_one_cube())
 
 
 WIN_DURATION = 0.6

@@ -602,6 +602,7 @@ def main():
         text=(
             "Arrows: Move | T: 10 rolls | G: 10 + Goal\n"
             "F: Fall | L: Lie across F | B: Fragile break\n"
+            "C: Bridge closes | Tab: Switch cube\n"
             "W: Preview Win | R: Reset | 1/2/3: Pose"
         ),
         position=(-0.85, 0.45),
@@ -610,7 +611,7 @@ def main():
 
     status_text = Text(
         text="Ready | T/G require basic_01.json",
-        position=(-0.85, 0.38),
+        position=(-0.85, 0.355),
         scale=0.7,
         color=(1, 0.85, 0.35, 1),
     )
