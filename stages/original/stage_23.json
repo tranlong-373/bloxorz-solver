@@ -44,17 +44,9 @@
         [
           2,
           11
-        ],
-        [
-          6,
-          1
-        ],
-        [
-          6,
-          2
         ]
       ],
-      "initially_open": false
+      "initially_open": true
     },
     {
       "id": "bridgeD",
@@ -72,6 +64,20 @@
         [
           6,
           14
+        ]
+      ],
+      "initially_open": true
+    },
+    {
+      "id": "bridgeF",
+      "cells": [
+        [
+          6,
+          1
+        ],
+        [
+          6,
+          2
         ]
       ],
       "initially_open": false
@@ -99,7 +105,7 @@
         13
       ],
       "bridges": [
-        "bridgeC"
+        "bridgeF"
       ],
       "mode": "permanent",
       "set_to": "open"
@@ -151,7 +157,7 @@
         0
       ],
       "bridges": [
-        "bridgeC"
+        "bridgeF"
       ],
       "mode": "permanent",
       "set_to": "close"

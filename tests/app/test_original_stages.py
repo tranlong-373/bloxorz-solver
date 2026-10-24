@@ -11,9 +11,6 @@ from bloxorz.verify import verify_solution
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ORIGINAL_DIR = REPO_ROOT / "stages" / "original"
 
-# stages that contain split switches requiring task 2.4 engine
-SPLIT_STAGE_NUMBERS = {8, 9, 10, 15, 16, 20, 23, 24, 26, 28}
-
 # stage 30 is excluded because quick_bloxorz source map is missing floor tiles
 EXCLUDED_STAGE_NUMBERS = {30}
 
@@ -54,10 +51,6 @@ def test_bfs_solves_original_stages(stage_num: int):
     if stage_num in EXCLUDED_STAGE_NUMBERS:
         pytest.skip(f"Stage {stage_num} is excluded: quick_bloxorz map is missing floor tiles")
 
-    # skip stages that need split switches until task 2.4 is implemented
-    if stage_num in SPLIT_STAGE_NUMBERS:
-        pytest.skip(f"Stage {stage_num} has split switch, requires task 2.4")
-
     stage_id = f"stage_{stage_num:02d}"
     stage = load_stage(ORIGINAL_DIR / f"{stage_id}.json")
 
@@ -67,3 +60,24 @@ def test_bfs_solves_original_stages(stage_num: int):
     assert result.length > 0
     valid, message = verify_solution(stage, result.actions)
     assert valid, f"Verification failed for {stage_id}: {message}"
+
+
+def test_stage_23_solves_with_reference_bridge_configuration():
+    # test stage 23 using reference bridge configuration
+    stage_path = ORIGINAL_DIR / "stage_23.json"
+    stage = load_stage(stage_path)
+
+    # bfs must find the 75-step reference solution
+    bfs_result = run("bfs", stage, limits=Limits(timeout_s=15.0))
+    assert bfs_result.status == "solved"
+    assert bfs_result.length == 75
+    valid_bfs, message_bfs = verify_solution(stage, bfs_result.actions)
+    assert valid_bfs, f"Verification failed for stage_23 BFS: {message_bfs}"
+
+    # ucs must also solve stage 23 and produce a valid path
+    ucs_result = run("ucs", stage, limits=Limits(timeout_s=15.0))
+    assert ucs_result.status == "solved"
+    assert ucs_result.length > 0
+    valid_ucs, message_ucs = verify_solution(stage, ucs_result.actions)
+    assert valid_ucs, f"Verification failed for stage_23 UCS: {message_ucs}"
+
