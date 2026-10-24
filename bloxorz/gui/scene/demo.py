@@ -275,9 +275,12 @@ def input(key):
         action = Action(directions[key])
         result = step(stage, before, action)
 
-        # An invalid move caused by falling.
-        if result.outcome is Outcome.ILLEGAL and result.reason == "fell":
-            print("Fall detected:", action.direction)
+        # Invalid fall moves are rendered from Engine-confirmed events.
+        if result.outcome is Outcome.ILLEGAL and result.reason in (
+            "fell",
+            "bridge_closed",
+        ):
+            print("Fall detected:", action.direction, result.reason)
 
             def fall_finished():
                 global has_fallen
@@ -289,6 +292,7 @@ def input(key):
                 before,
                 action,
                 on_done=fall_finished,
+                result=result,
             )
             return
 

@@ -12,6 +12,7 @@ TILE_COLORS = {
 }
 
 SWITCH_COLORS = {
+    # Soft: low, round plate; heavy: X; split: paired parallel bars.
     "soft": color.rgb32(100, 210, 120),
     "heavy": color.rgb32(230, 110, 85),
     "split": color.rgb32(175, 115, 225),

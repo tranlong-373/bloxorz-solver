@@ -7,7 +7,7 @@ import logging
 
 from ursina import camera
 
-from .animate import play_fall, play_roll, play_win
+from .animate import play_drop, play_fall, play_roll, play_win
 from .block import BlockView
 from .board import Board
 
@@ -46,13 +46,14 @@ class SceneView:
         camera.look_at((center_x, 0, center_z))
 
     def show_state(self, state):
-        """Place the block at the supplied State."""
+        """Place the block and render bridges from the supplied State."""
         self._state = state
+        self.board.show_state(state)
         self.block.place(state)
 
     def is_busy(self):
         """Return True while a scene animation is running."""
-        return self._busy
+        return self._busy or self.board.is_busy()
 
     def animate_step(self, before, action, result, on_done):
         """Animate an already validated move from Engine."""
@@ -81,7 +82,9 @@ class SceneView:
                 self._busy = False
                 return
 
-            self.show_state(result.state)
+            # Đặt khối theo State chính thức. Cầu đổi trạng thái sau đó,
+            # theo đúng thứ tự events do Engine trả về.
+            self.block.place(result.state)
 
             expected = self.block.entity.world_position
 
@@ -98,8 +101,12 @@ class SceneView:
                 error,
             )
 
-            self._busy = False
-            on_done()
+            def events_finished():
+                self.board.show_state(result.state)
+                self._busy = False
+                on_done()
+
+            self.board.animate_events(result.events, events_finished)
 
         try:
             play_roll(
@@ -111,8 +118,8 @@ class SceneView:
             self._busy = False
             raise
 
-    def show_fall(self, before, action, on_done):
-        """Animate the block falling after an invalid move."""
+    def show_fall(self, before, action, on_done, result=None):
+        """Animate an Engine-rejected move that falls off the board."""
 
         if self._busy:
             raise RuntimeError("SceneView is already animating")
@@ -134,11 +141,23 @@ class SceneView:
             on_done()
 
         try:
-            play_fall(
-                self.block.entity,
-                action.direction,
-                finish,
-            )
+            if result is not None and result.reason == "bridge_closed":
+                # The Engine rejected the landing after its switch closed a
+                # bridge under the block. Roll to that landing, apply only
+                # confirmed events, then drop from the resulting position.
+                def roll_finished():
+                    def bridges_finished():
+                        play_drop(self.block.entity, finish)
+
+                    self.board.animate_events(result.events, bridges_finished)
+
+                play_roll(self.block.entity, action.direction, roll_finished)
+            else:
+                play_fall(
+                    self.block.entity,
+                    action.direction,
+                    finish,
+                )
         except Exception:
             self._busy = False
             raise
