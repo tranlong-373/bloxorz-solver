@@ -3,13 +3,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from bloxorz.gui.scene import board as board_module
-from bloxorz.gui.scene.board import Board
-
 
 @pytest.fixture
-def fragile_board(monkeypatch):
-    board = Board()
+
+def fragile_board(monkeypatch, scene_modules):
+    board = scene_modules.board.Board()
     cell = (1, 2)
     defaults = ((2, -0.1, -1), (0.95, 0.2, 0.95))
     tile = SimpleNamespace(position=defaults[0], scale=defaults[1])
@@ -18,7 +16,7 @@ def fragile_board(monkeypatch):
 
     animations = []
     monkeypatch.setattr(
-        board_module,
+        scene_modules.board,
         "play_fragile_break",
         lambda target, on_done: animations.append(on_done),
     )

@@ -1,19 +1,19 @@
 from types import SimpleNamespace
 
-from bloxorz.gui.scene import view as view_module
-from bloxorz.gui.scene.view import SceneView
 from bloxorz.model import Action, Direction
 
 
-def test_fragile_fall_orders_roll_break_drop_and_callback(monkeypatch):
+def test_fragile_fall_orders_roll_break_drop_and_callback(monkeypatch, scene_modules):
     events = []
+    view_module = scene_modules.view
+    scene_view = view_module.SceneView
 
     def break_fragile(cell, on_done):
         events.append(("break", cell))
         on_done()
         on_done()
 
-    scene = SceneView.__new__(SceneView)
+    scene = scene_view.__new__(scene_view)
     scene.board = SimpleNamespace(is_busy=lambda: False, break_fragile=break_fragile)
     scene.block = SimpleNamespace(entity=object())
     scene._busy = False
@@ -25,7 +25,7 @@ def test_fragile_fall_orders_roll_break_drop_and_callback(monkeypatch):
         events.append(("state", state))
 
     scene.show_state = show_state
-    scene.is_busy = SceneView.is_busy.__get__(scene)
+    scene.is_busy = scene_view.is_busy.__get__(scene)
 
     def roll(_block, _direction, on_done):
         events.append("roll")
@@ -57,9 +57,11 @@ def test_fragile_fall_orders_roll_break_drop_and_callback(monkeypatch):
     assert not scene.is_busy()
 
 
-def test_stale_fragile_roll_does_not_start_tile_animation(monkeypatch):
+def test_stale_fragile_roll_does_not_start_tile_animation(monkeypatch, scene_modules):
     events = []
-    scene = SceneView.__new__(SceneView)
+    view_module = scene_modules.view
+    scene_view = view_module.SceneView
+    scene = scene_view.__new__(scene_view)
     scene.board = SimpleNamespace(
         is_busy=lambda: False,
         break_fragile=lambda *_args, **_kwargs: events.append("break"),
@@ -68,8 +70,11 @@ def test_stale_fragile_roll_does_not_start_tile_animation(monkeypatch):
     scene._busy = False
     scene._animation_id = 4
     scene._state = None
-    scene.show_state = lambda state: (setattr(scene, "_state", state), events.append(state))
-    scene.is_busy = SceneView.is_busy.__get__(scene)
+    scene.show_state = lambda state: (
+        setattr(scene, "_state", state),
+        events.append(state),
+    )
+    scene.is_busy = scene_view.is_busy.__get__(scene)
 
     roll_finished = []
     monkeypatch.setattr(
