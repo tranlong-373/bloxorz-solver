@@ -152,6 +152,12 @@ def make_tables(rows, out, original_rows=None):
         raise ValueError("CSV kết quả không có dòng dữ liệu nào")
     if original_rows is not None and not original_rows:
         raise ValueError("CSV màn gốc không có dòng dữ liệu nào")
+    # kiểm hết dữ liệu trước khi ghi file nào, tránh để lại bảng dở dang
+    used = None
+    if original_rows is not None:
+        used = [r for r in original_rows if r["stage_id"] != DROPPED]
+        if not used:
+            raise ValueError(f"CSV màn gốc chỉ có {DROPPED}")
     out.mkdir(parents=True, exist_ok=True)
     (out / "summary.md").write_text("# Kết quả theo nhóm\n\n" + NOTE_SUMMARY + "\n" + summary_md(rows),
                                     encoding="utf-8")
@@ -159,10 +165,7 @@ def make_tables(rows, out, original_rows=None):
     (out / "detail.md").write_text("# Kết quả từng màn\n\n" + NOTE_DETAIL + "\n" + detail_md(rows), encoding="utf-8")
     write_csv(out / "detail.csv", detail(rows))
     written = ["summary.md", "summary.csv", "detail.md", "detail.csv"]
-    if original_rows is not None:
-        used = [r for r in original_rows if r["stage_id"] != DROPPED]
-        if not used:
-            raise ValueError(f"CSV màn gốc chỉ có {DROPPED}")
+    if used is not None:
         if len(used) != len(original_rows):
             print(f"Bỏ {len(original_rows) - len(used)} dòng của {DROPPED} trong CSV màn gốc")
         n = len({r["stage_id"] for r in used})

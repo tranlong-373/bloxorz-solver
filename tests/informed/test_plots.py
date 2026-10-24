@@ -150,7 +150,10 @@ def test_empty_csv_gives_clear_error(tmp_path, capsys):
         plots.make_tables(sample_rows(), tmp_path / "b", [])
     with pytest.raises(ValueError, match="không có dòng"):
         plots.write_csv(tmp_path / "x.csv", [])
-    assert not (tmp_path / "a").exists() and not (tmp_path / "b").exists()
+    # original CSV with only stage_30: error before the main tables are written
+    with pytest.raises(ValueError, match="stage_30"):
+        plots.make_tables(sample_rows(), tmp_path / "c", [row("stage_30", "G3", "bfs")])
+    assert not (tmp_path / "a").exists() and not (tmp_path / "b").exists() and not (tmp_path / "c").exists()
 
     data = write(tmp_path / "results.csv", [])
     assert plots.main([str(data), "--out", str(tmp_path / "out")]) == 1
