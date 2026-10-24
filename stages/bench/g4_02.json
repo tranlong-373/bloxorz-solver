@@ -1,0 +1,34 @@
+{
+  "id": "g4_02",
+  "group": "G4",
+  "source": "original-9",
+  "note": "Original level 9: the split switch puts one cube next to it and the other one back near the start, the two cubes have to walk to each other and merge",
+  "grid": [
+    "####...#...####",
+    "#S##...#...####",
+    "###############",
+    "......#G#......",
+    "......###......"
+  ],
+  "bridges": [],
+  "switches": [
+    {
+      "id": "sw_1",
+      "kind": "split",
+      "pos": [
+        1,
+        13
+      ],
+      "targets": [
+        [
+          1,
+          12
+        ],
+        [
+          1,
+          2
+        ]
+      ]
+    }
+  ]
+}

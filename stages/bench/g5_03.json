@@ -1,0 +1,47 @@
+{
+  "id": "g5_03",
+  "group": "G5",
+  "source": "team",
+  "note": "Team two-path level: stand on the heavy switch to open the bridge, then the top row is shorter but crosses fragile tiles, the bottom row is safe but 2 moves longer",
+  "grid": [
+    "#S##................",
+    "####................",
+    "####BB#######FF###G.",
+    "####..############..",
+    ".##.................",
+    ".##.................",
+    ".###................",
+    "..##................"
+  ],
+  "bridges": [
+    {
+      "id": "bridgeA",
+      "cells": [
+        [
+          2,
+          4
+        ],
+        [
+          2,
+          5
+        ]
+      ],
+      "initially_open": false
+    }
+  ],
+  "switches": [
+    {
+      "id": "sw_1",
+      "kind": "heavy",
+      "pos": [
+        7,
+        2
+      ],
+      "bridges": [
+        "bridgeA"
+      ],
+      "mode": "permanent",
+      "set_to": "open"
+    }
+  ]
+}
