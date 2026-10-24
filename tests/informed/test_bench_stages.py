@@ -20,13 +20,12 @@ PLANNED = {"G1": 4, "G2": 3, "G3": 4, "G4": 3, "G5": 3}
 
 BENCH_IDS = sorted(p.stem for p in BENCH_DIR.glob("*.json"))
 
-# Stages in the repo now, 15/17. g2_03 and g4_01 are left for VT2 (task 2.5),
-# VT2 adds them here in PR #27
+# Updated the list to include new benchmark stages.
 EXPECTED_IDS = [
     "g1_01", "g1_02", "g1_03", "g1_04",
-    "g2_01", "g2_02",
+    "g2_01", "g2_02", "g2_03",
     "g3_01", "g3_02", "g3_03", "g3_04",
-    "g4_02", "g4_03",
+    "g4_01", "g4_02", "g4_03",
     "g5_01", "g5_02", "g5_03",
 ]
 
