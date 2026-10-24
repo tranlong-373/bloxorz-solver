@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from ursina import AmbientLight, DirectionalLight, Ursina, window
+from ursina import AmbientLight, DirectionalLight, Ursina, invoke, window
 
 from bloxorz.gui.controller import GameController
 from bloxorz.gui.scene.view import SceneView
@@ -53,7 +53,7 @@ def input(key: str) -> None:
 
     # 'r' key triggers restart
     if key == "r":
-        _controller.restart()
+        _ui.restart()
         return
 
     # 'n' key toggles the level selection menu
@@ -94,7 +94,10 @@ def main() -> None:
     sun.look_at((1, -2, -1))
 
     scene_view = SceneView()
-    _controller = GameController(scene_view)
+    _controller = GameController(
+        scene_view,
+        schedule=lambda fn, delay: invoke(fn, delay=delay),
+    )
     _ui = UI(_controller)
 
     # Load initial level (prefer basic_01 if available)
