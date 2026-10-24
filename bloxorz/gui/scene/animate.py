@@ -142,6 +142,22 @@ def play_fall(block, direction: Direction, on_finished):
     )
     roll_animation.append(start_drop)
 
+
+def play_drop(block, on_finished):
+    """Drop vertically after the block has landed on a broken fragile tile."""
+    drop_animation = block.animate_y(
+        FALL_TARGET_Y,
+        duration=FALL_DROP_DURATION,
+        curve=curve.in_expo,
+    )
+
+    def finish():
+        block.y = FALL_TARGET_Y
+        on_finished()
+
+    drop_animation.append(finish)
+
+
 WIN_DURATION = 0.6
 WIN_DROP_DISTANCE = 2.0
 

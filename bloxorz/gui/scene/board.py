@@ -89,18 +89,24 @@ class Board:
         self._broken_fragile.add(cell)
         self._busy = True
         generation = self._generation
+        callback_called = False
 
         def finish():
+            nonlocal callback_called
+            if callback_called:
+                return
             if generation != self._generation:
                 return
+            callback_called = True
             self._busy = False
             on_done()
 
         try:
             play_fragile_break(self.fragile_tiles[cell], finish)
         except Exception:
-            self._busy = False
-            self._broken_fragile.discard(cell)
+            if not callback_called:
+                self._busy = False
+                self._broken_fragile.discard(cell)
             raise
 
     def is_busy(self):

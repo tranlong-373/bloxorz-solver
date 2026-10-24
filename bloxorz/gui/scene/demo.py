@@ -9,7 +9,8 @@ Controls:
     Arrow keys: Move the block
     R: Reset the demo
     F: Test falling
-    B: Test fragile break (load fragile_01.json)
+    L: Test lying safely across F
+    B: Test fragile break
     T: Run 10 consecutive rolls
     G: Run 10 rolls ending at Goal
     W: Preview the win animation
@@ -27,7 +28,7 @@ from ursina import (
     window,
 )
 
-from bloxorz.engine.rules import ROLL, Outcome, is_goal, step
+from bloxorz.engine.rules import ROLL, Outcome, footprint, is_goal, step
 from bloxorz.loader import load_stage
 from bloxorz.model import Action, Direction, Pose, State
 
@@ -233,13 +234,11 @@ def _show_engine_fall(before, action, result, on_done):
     """Show an Engine-rejected fall, collapsing F first when reported."""
     if result.reason == "fragile_broke":
         cell = _fragile_cell_for_move(before, action)
-        scene_view.board.break_fragile(
+        scene_view.show_fragile_fall(
+            before,
+            action,
             cell,
-            on_done=lambda: scene_view.show_fall(
-                before,
-                action,
-                on_done=on_done,
-            ),
+            on_done=on_done,
         )
         return
 
@@ -305,6 +304,44 @@ def test_fragile_break():
     _show_engine_fall(before, action, result, fall_finished)
 
 
+def test_fragile_safe_crossing():
+    """Show a legal lying move across F without breaking the tile."""
+    global current_state
+
+    if scene_view.is_busy() or auto_running:
+        set_status("Cannot test fragile crossing during animation")
+        return
+    if has_fallen or has_won:
+        set_status("Press R to reset first")
+        return
+
+    before = State(
+        pose=Pose.STANDING,
+        pos=stage.start,
+        bridges_open=stage.initial_bridges_open(),
+    )
+    action = Action(Direction.RIGHT)
+    result = step(stage, before, action)
+    if (
+        result.outcome is not Outcome.MOVED
+        or result.state is None
+        or result.state.pose is Pose.STANDING
+        or not any(stage.cell(cell) == "F" for cell in footprint(result.state))
+    ):
+        set_status("No safe lying move across F at the stage start")
+        return
+
+    current_state = before
+    scene_view.show_state(before)
+
+    def finished():
+        global current_state
+        current_state = result.state
+        set_status("L: block crossed F while lying; tile stayed intact")
+
+    scene_view.animate_step(before, action, result, on_done=finished)
+
+
 def input(key):
     global current_state, has_fallen
 
@@ -340,6 +377,10 @@ def input(key):
 
     if key == "b":
         test_fragile_break()
+        return
+
+    if key == "l":
+        test_fragile_safe_crossing()
         return
 
     # T: run the 10-roll animation test.
@@ -490,8 +531,8 @@ def main():
     Text(
         text=(
             "Arrows: Move | T: 10 rolls | G: 10 + Goal\n"
-            "F: Fall | B: Fragile break | W: Preview Win | "
-            "R: Reset | 1/2/3: Pose"
+            "F: Fall | L: Lie across F | B: Fragile break\n"
+            "W: Preview Win | R: Reset | 1/2/3: Pose"
         ),
         position=(-0.85, 0.45),
         scale=0.75,

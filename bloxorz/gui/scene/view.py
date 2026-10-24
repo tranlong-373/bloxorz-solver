@@ -7,7 +7,7 @@ import logging
 
 from ursina import camera
 
-from .animate import play_fall, play_roll, play_win
+from .animate import play_drop, play_fall, play_roll, play_win
 from .block import BlockView
 from .board import Board
 
@@ -23,10 +23,14 @@ class SceneView:
         self._busy = False
         self._animation_id = 0
         self._state = None
+        self._waiting_for_fragile_tile = False
 
     def load_stage(self, stage, state):
         """Draw the level and initial block."""
         self._animation_id += 1
+        if self._waiting_for_fragile_tile:
+            self._waiting_for_fragile_tile = False
+            self._busy = False
         self.stage = stage
         self._state = state
 
@@ -139,6 +143,69 @@ class SceneView:
                 action.direction,
                 finish,
             )
+        except Exception:
+            self._busy = False
+            raise
+
+    def show_fragile_fall(self, before, action, cell, on_done):
+        """Roll onto the Engine-reported fragile cell, break it, then drop."""
+        if self.is_busy():
+            raise RuntimeError("SceneView is already animating")
+
+        self.show_state(before)
+        self._busy = True
+        animation_id = self._animation_id
+        callback_called = False
+        roll_callback_called = False
+        tile_callback_called = False
+
+        def is_current():
+            if animation_id == self._animation_id:
+                return True
+            if self._state is not None:
+                self.show_state(self._state)
+            self._busy = False
+            return False
+
+        def finish():
+            nonlocal callback_called
+            if callback_called or not is_current():
+                return
+            callback_called = True
+            self._busy = False
+            on_done()
+
+        def tile_finished():
+            nonlocal tile_callback_called
+            if tile_callback_called:
+                return
+            tile_callback_called = True
+            self._waiting_for_fragile_tile = False
+            if not is_current():
+                return
+            try:
+                play_drop(self.block.entity, finish)
+            except Exception:
+                self._busy = False
+                raise
+
+        def roll_finished():
+            nonlocal roll_callback_called
+            if roll_callback_called:
+                return
+            roll_callback_called = True
+            if not is_current():
+                return
+            self._waiting_for_fragile_tile = True
+            try:
+                self.board.break_fragile(cell, on_done=tile_finished)
+            except Exception:
+                self._waiting_for_fragile_tile = False
+                self._busy = False
+                raise
+
+        try:
+            play_roll(self.block.entity, action.direction, roll_finished)
         except Exception:
             self._busy = False
             raise
