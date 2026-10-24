@@ -1,6 +1,6 @@
 """Render Bloxorz stages and coordinate 3D animations.
 
-Owner: VT3 | Tasks: 3.1, 3.2.
+Owner: VT3 | Tasks: 3.1, 3.2, 3.3a.
 """
 
 import logging

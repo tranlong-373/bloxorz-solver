@@ -1,8 +1,5 @@
 """Board: one entity per tile, bridges shown or hidden. Owner: VT3 (tasks 3.1, 3.3)."""
 
-
-"""Render a Stage as a 3D board."""
-
 from ursina import Entity, destroy
 from .animate import play_fragile_break
 from .theme import TILE_COLORS, SWITCH_COLORS, cell_to_world

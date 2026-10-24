@@ -1,6 +1,6 @@
 """Animation helpers for rolling, falling, and winning.
 
-Owner: VT3 | Task: 3.2.
+Owner: VT3 | Tasks: 3.2, 3.3a.
 """
 
 from ursina import Entity, curve, destroy, scene
