@@ -9,6 +9,8 @@ Controls:
     Arrow keys: Move the block
     R: Reset the demo
     F: Test falling
+    L: Test lying safely across F
+    B: Test fragile break
     T: Run 10 consecutive rolls
     G: Run 10 rolls ending at Goal
     W: Preview the win animation
@@ -26,7 +28,7 @@ from ursina import (
     window,
 )
 
-from bloxorz.engine.rules import Outcome, is_goal, step
+from bloxorz.engine.rules import Outcome, footprint, is_goal, step
 from bloxorz.loader import load_stage
 from bloxorz.model import Action, Direction, Pose, State
 
@@ -39,6 +41,14 @@ current_state = None
 auto_running = False
 has_fallen = False
 has_won = False
+status_text = None
+
+
+def set_status(message):
+    """Show control feedback in both the terminal and demo window."""
+    print(message)
+    if status_text is not None:
+        status_text.text = message
 
 
 def test_ten_rolls(to_goal=False):
@@ -46,15 +56,15 @@ def test_ten_rolls(to_goal=False):
     global current_state, auto_running
 
     if auto_running or scene_view.is_busy():
-        print("Another animation is running")
+        set_status("Animation is still running")
         return
 
     if has_fallen or has_won:
-        print("Press R to reset first")
+        set_status("Press R to reset first")
         return
 
     if stage.id != "basic_01":
-        print("The T/G tests use basic_01.json")
+        set_status("T/G demo requires stages/fixtures/basic_01.json")
         return
 
     # Reset to the initial State.
@@ -87,15 +97,16 @@ def test_ten_rolls(to_goal=False):
     auto_running = True
     completed = 0
 
-    print("START:", "10-roll GOAL test" if to_goal else "10-roll test")
+    set_status("G: running 10 rolls to Goal" if to_goal else "T: running 10 rolls")
 
     def run_next():
         nonlocal completed
         global current_state, auto_running, has_won
 
         if completed == len(actions):
-            print("TEST COMPLETED: 10/10 rolls")
-            print("Final State:", current_state)
+            set_status(
+                "G: 10 rolls complete" if to_goal else "T: complete, 10/10 rolls"
+            )
 
             if not to_goal:
                 auto_running = False
@@ -104,18 +115,17 @@ def test_ten_rolls(to_goal=False):
             # Verify that the Engine recognizes the final Goal.
             if not is_goal(stage, current_state):
                 auto_running = False
-                print("TEST FAILED: Final State is not Goal")
+                set_status("G: failed, final position is not Goal")
                 return
 
-            print("GOAL reached! Starting win animation.")
+            set_status("Goal reached; playing win animation")
 
             def win_finished():
                 global auto_running, has_won
 
                 has_won = True
                 auto_running = False
-                print("GOAL TEST PASSED: 10 rolls + win")
-                print("Press R to reset.")
+                set_status("G: passed, 10 rolls + win. Press R.")
 
             scene_view.show_win(on_done=win_finished)
             return
@@ -129,10 +139,7 @@ def test_ten_rolls(to_goal=False):
 
         if result.outcome != Outcome.MOVED or result.state is None:
             auto_running = False
-            print(
-                f"TEST FAILED at step {completed + 1}:",
-                result.reason,
-            )
+            set_status(f"Test failed at step {completed + 1}: {result.reason}")
             return
 
         def finished():
@@ -142,12 +149,7 @@ def test_ten_rolls(to_goal=False):
             current_state = result.state
             completed += 1
 
-            print(
-                f"Step {completed}/10:",
-                direction.name,
-                current_state.pose.name,
-                current_state.pos,
-            )
+            set_status(f"Step {completed}/10: {direction.name}")
 
             # The next move starts only after on_done().
             run_next()
@@ -167,7 +169,7 @@ def reset_demo():
     global current_state, has_fallen, has_won
 
     if scene_view.is_busy() or auto_running:
-        print("Cannot reset during animation")
+        set_status("Cannot reset while an animation is running")
         return
 
     current_state = State(
@@ -176,11 +178,12 @@ def reset_demo():
         bridges_open=stage.initial_bridges_open(),
     )
 
+    scene_view.board.reset_fragile()
     scene_view.show_state(current_state)
     has_fallen = False
     has_won = False
 
-    print("Demo reset:", current_state.pos)
+    set_status(f"Demo reset: {current_state.pos}")
 
 
 def test_win():
@@ -188,11 +191,11 @@ def test_win():
     global current_state, has_won
 
     if scene_view.is_busy() or auto_running:
-        print("Cannot preview win during animation")
+        set_status("Cannot preview win during animation")
         return
 
     if has_fallen or has_won:
-        print("Press R to reset first")
+        set_status("Press R to reset first")
         return
 
     # Use the goal position only for an animation preview.
@@ -207,9 +210,106 @@ def test_win():
     def finished():
         global has_won
         has_won = True
-        print("Win animation completed. Press R to reset.")
+        set_status("Win animation completed. Press R to reset.")
 
     scene_view.show_win(on_done=finished)
+
+
+def test_fragile_break():
+    """Use an Engine-validated move that stands upright on an F tile."""
+    global current_state, has_fallen
+
+    if scene_view.is_busy() or auto_running:
+        set_status("Cannot test fragile break during animation")
+        return
+    if has_fallen or has_won:
+        set_status("Press R to reset first")
+        return
+
+    action = Action(Direction.LEFT)
+    candidate = None
+    for r, row in enumerate(stage.grid):
+        for c, symbol in enumerate(row):
+            if symbol != "F":
+                continue
+
+            before_cells = ((r, c + 1), (r, c + 2))
+            bridges_open = stage.initial_bridges_open()
+            supported = all(
+                (
+                    stage.bridge_at.get(cell) in bridges_open
+                    if stage.bridge_at.get(cell) is not None
+                    else stage.cell(cell) != "."
+                )
+                for cell in before_cells
+            )
+            if not supported:
+                continue
+
+            before = State(
+                pose=Pose.HORIZONTAL,
+                pos=(r, c + 1),
+                bridges_open=bridges_open,
+            )
+            result = step(stage, before, action)
+            if result.reason == "fragile_broke":
+                candidate = (before, result)
+                break
+        if candidate is not None:
+            break
+
+    if candidate is None:
+        set_status("No Engine-valid fragile-break position on this stage")
+        return
+
+    before, result = candidate
+    current_state = before
+    scene_view.show_state(before)
+
+    def fall_finished():
+        global has_fallen
+        has_fallen = True
+        set_status("Fragile tile broke; block fell. Press R to reset.")
+
+    scene_view.show_illegal_step(before, action, result, on_done=fall_finished)
+
+
+def test_fragile_safe_crossing():
+    """Show a legal lying move across F without breaking the tile."""
+    global current_state
+
+    if scene_view.is_busy() or auto_running:
+        set_status("Cannot test fragile crossing during animation")
+        return
+    if has_fallen or has_won:
+        set_status("Press R to reset first")
+        return
+
+    before = State(
+        pose=Pose.STANDING,
+        pos=stage.start,
+        bridges_open=stage.initial_bridges_open(),
+    )
+    action = Action(Direction.RIGHT)
+    result = step(stage, before, action)
+    if (
+        result.outcome is not Outcome.MOVED
+        or result.state is None
+        or result.state.pose is Pose.STANDING
+        or not any(stage.cell(cell) == "F" for cell in footprint(result.state))
+    ):
+        set_status("No safe lying move across F at the stage start")
+        return
+
+    current_state = before
+    scene_view.show_state(before)
+
+    def finished():
+        global current_state
+        current_state = result.state
+        set_status("L: block crossed F while lying; tile stayed intact")
+
+    scene_view.animate_step(before, action, result, on_done=finished)
 
 
 def input(key):
@@ -222,11 +322,11 @@ def input(key):
 
     if key == "f":
         if stage.id != "basic_01":
-            print("F test is configured for basic_01.json")
+            set_status("F test requires stages/fixtures/basic_01.json")
             return
 
         if auto_running or scene_view.is_busy():
-            print("Cannot test fall during animation")
+            set_status("Cannot test fall during animation")
             return
 
         reset_demo()
@@ -237,12 +337,20 @@ def input(key):
         return
 
     if has_won:
-        print("Win animation completed. Press R to reset.")
+        set_status("Win animation completed. Press R to reset.")
         return
 
     # Block further movement after the fall.
     if has_fallen:
-        print("Block has fallen. Press R to reset.")
+        set_status("Block has fallen. Press R to reset.")
+        return
+
+    if key == "b":
+        test_fragile_break()
+        return
+
+    if key == "l":
+        test_fragile_safe_crossing()
         return
 
     # T: run the 10-roll animation test.
@@ -268,32 +376,31 @@ def input(key):
 
     if key in directions:
         if scene_view.is_busy():
-            print("Animation is still running")
+            set_status("Animation is still running")
             return
 
         before = current_state
         action = Action(directions[key])
         result = step(stage, before, action)
 
-        # An invalid move caused by falling.
-        if result.outcome is Outcome.ILLEGAL and result.reason == "fell":
-            print("Fall detected:", action.direction)
+        # Engine decides why the move fell; Scene only presents that result.
+        if result.outcome is Outcome.ILLEGAL and result.reason in {
+            "fell",
+            "fragile_broke",
+        }:
+            set_status(f"Fall detected: {action.direction.name} ({result.reason})")
 
             def fall_finished():
                 global has_fallen
 
                 has_fallen = True
-                print("Fall animation completed. Press R to reset.")
+                set_status("Fall animation completed. Press R to reset.")
 
-            scene_view.show_fall(
-                before,
-                action,
-                on_done=fall_finished,
-            )
+            scene_view.show_illegal_step(before, action, result, on_done=fall_finished)
             return
 
         if result.outcome != Outcome.MOVED or result.state is None:
-            print("Move rejected:", result.reason)
+            set_status(f"Move rejected: {result.reason}")
             return
 
         def finished():
@@ -302,21 +409,19 @@ def input(key):
             # Update State only after the roll animation finishes.
             current_state = result.state
 
-            print(
-                "Roll finished:",
-                current_state.pos,
-                current_state.pose.name,
+            set_status(
+                f"Roll finished: {current_state.pose.name} at {current_state.pos}"
             )
 
             # The Engine provides a separate goal check.
             if is_goal(stage, current_state):
-                print("GOAL reached! Starting win animation.")
+                set_status("Goal reached; playing win animation")
 
                 def win_finished():
                     global has_won
 
                     has_won = True
-                    print("REAL WIN COMPLETED. Press R to reset.")
+                    set_status("Win completed. Press R to reset.")
 
                 scene_view.show_win(on_done=win_finished)
 
@@ -344,11 +449,11 @@ def input(key):
 
         current_state = sample_state
         scene_view.show_state(sample_state)
-        print("Displaying:", poses[key].name)
+        set_status(f"Displaying pose: {poses[key].name}")
 
 
 def main():
-    global stage, scene_view, current_state
+    global stage, scene_view, current_state, status_text
 
     if len(sys.argv) != 2:
         print(
@@ -396,10 +501,18 @@ def main():
     Text(
         text=(
             "Arrows: Move | T: 10 rolls | G: 10 + Goal\n"
-            "F: Fall | W: Preview Win | R: Reset | 1/2/3: Pose"
+            "F: Fall | L: Lie across F | B: Fragile break\n"
+            "W: Preview Win | R: Reset | 1/2/3: Pose"
         ),
         position=(-0.85, 0.45),
         scale=0.75,
+    )
+
+    status_text = Text(
+        text="Ready | T/G require basic_01.json",
+        position=(-0.85, 0.38),
+        scale=0.7,
+        color=(1, 0.85, 0.35, 1),
     )
 
     print("Loaded stage:", stage.id)

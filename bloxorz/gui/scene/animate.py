@@ -1,6 +1,6 @@
 """Animation helpers for rolling, falling, and winning.
 
-Owner: VT3 | Task: 3.2.
+Owner: VT3 | Tasks: 3.2, 3.3a.
 """
 
 from ursina import Entity, curve, destroy, scene
@@ -9,6 +9,17 @@ from bloxorz.model import Direction
 
 
 ROLL_DURATION = 0.25
+FRAGILE_BREAK_DURATION = 0.3
+
+
+def play_fragile_break(tile, on_finished):
+    """Collapse a fragile floor tile after Engine reports it broken."""
+    animation = tile.animate_scale(
+        (tile.scale_x, 0.01, tile.scale_z),
+        duration=FRAGILE_BREAK_DURATION,
+        curve=curve.in_quad,
+    )
+    animation.append(on_finished)
 
 
 def play_roll(block, direction: Direction, on_finished):
@@ -130,6 +141,22 @@ def play_fall(block, direction: Direction, on_finished):
         curve=curve.linear,
     )
     roll_animation.append(start_drop)
+
+
+def play_drop(block, on_finished):
+    """Drop vertically after the block has landed on a broken fragile tile."""
+    drop_animation = block.animate_y(
+        FALL_TARGET_Y,
+        duration=FALL_DROP_DURATION,
+        curve=curve.in_expo,
+    )
+
+    def finish():
+        block.y = FALL_TARGET_Y
+        on_finished()
+
+    drop_animation.append(finish)
+
 
 WIN_DURATION = 0.6
 WIN_DROP_DISTANCE = 2.0
