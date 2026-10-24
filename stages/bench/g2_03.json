@@ -1,0 +1,15 @@
+{
+  "id": "g2_03",
+  "group": "G2",
+  "source": "team",
+  "note": "Fragile corridor: cross F tiles while lying; reaching the goal requires an upright block.",
+  "grid": [
+    "...............",
+    ".#######.......",
+    ".S#F##F###G###.",
+    ".######..######",
+    "..............."
+  ],
+  "bridges": [],
+  "switches": []
+}
