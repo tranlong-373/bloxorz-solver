@@ -140,6 +140,14 @@ def test_show_illegal_step_dispatches_on_engine_reason(monkeypatch, scene_module
         "show_fragile_fall",
         lambda before, action, cell, on_done: calls.append(("fragile", cell)),
     )
+    # Task 3.3b: bridge_closed plays the board events between roll and drop.
+    monkeypatch.setattr(
+        scene,
+        "_show_landing_fall",
+        lambda before, action, board_effect, on_done: calls.append(
+            ("landing", action.direction)
+        ),
+    )
 
     fragile = step(stage, BREAK_BEFORE, BREAK_ACTION)
     fell = step(stage, initial_state(stage), Action(Direction.UP))
@@ -160,7 +168,7 @@ def test_show_illegal_step_dispatches_on_engine_reason(monkeypatch, scene_module
     assert calls == [
         ("fragile", (1, 2)),
         ("fall", Direction.UP),
-        ("fall", Direction.UP),
+        ("landing", Direction.UP),
     ]
 
     moved = step(stage, initial_state(stage), Action(Direction.RIGHT))

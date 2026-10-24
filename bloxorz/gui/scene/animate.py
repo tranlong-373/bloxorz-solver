@@ -9,6 +9,7 @@ from bloxorz.model import Direction
 
 
 ROLL_DURATION = 0.25
+BRIDGE_DURATION = 0.3
 FRAGILE_BREAK_DURATION = 0.3
 
 

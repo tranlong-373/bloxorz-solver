@@ -1,6 +1,6 @@
 """Render Bloxorz stages and coordinate 3D animations.
 
-Owner: VT3 | Tasks: 3.1, 3.2, 3.3a.
+Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b.
 """
 
 import logging
@@ -67,8 +67,9 @@ class SceneView:
         camera.look_at((center_x, 0, center_z))
 
     def show_state(self, state):
-        """Place the block at the supplied State."""
+        """Place the block and render bridges from the supplied State."""
         self._state = state
+        self.board.show_state(state)
         self.block.place(state)
 
     def is_busy(self):
@@ -100,7 +101,9 @@ class SceneView:
             if animation_id != self._animation_id:
                 return
 
-            self.show_state(result.state)
+            # Đặt khối theo State chính thức. Cầu đổi trạng thái sau đó,
+            # theo đúng thứ tự events do Engine trả về.
+            self.block.place(result.state)
 
             expected = self.block.entity.world_position
 
@@ -117,8 +120,14 @@ class SceneView:
                 error,
             )
 
-            self._busy = False
-            on_done()
+            def events_finished():
+                if animation_id != self._animation_id:
+                    return
+                self.board.show_state(result.state)
+                self._busy = False
+                on_done()
+
+            self.board.animate_events(result.events, events_finished)
 
         try:
             play_roll(
@@ -162,6 +171,19 @@ class SceneView:
 
     def show_fragile_fall(self, before, action, cell, on_done):
         """Roll onto the Engine-reported fragile cell, break it, then drop."""
+        self._show_landing_fall(
+            before,
+            action,
+            lambda done: self.board.break_fragile(cell, on_done=done),
+            on_done,
+        )
+
+    def _show_landing_fall(self, before, action, board_effect, on_done):
+        """Roll onto the landing cells, run board_effect(done), then drop.
+
+        Shared by fragile_broke (F collapses) and bridge_closed (switch and
+        bridge events play) so both keep the same busy/callback rules.
+        """
         if self.is_busy():
             raise RuntimeError("SceneView is already animating")
 
@@ -170,7 +192,7 @@ class SceneView:
         animation_id = self._animation_id
         callback_called = False
         roll_callback_called = False
-        tile_callback_called = False
+        effect_callback_called = False
 
         def is_current():
             # A stale callback must not touch the busy flag or State of the
@@ -185,11 +207,11 @@ class SceneView:
             self._busy = False
             on_done()
 
-        def tile_finished():
-            nonlocal tile_callback_called
-            if tile_callback_called or not is_current():
+        def effect_finished():
+            nonlocal effect_callback_called
+            if effect_callback_called or not is_current():
                 return
-            tile_callback_called = True
+            effect_callback_called = True
             try:
                 play_drop(self.block.entity, finish)
             except Exception:
@@ -202,7 +224,7 @@ class SceneView:
                 return
             roll_callback_called = True
             try:
-                self.board.break_fragile(cell, on_done=tile_finished)
+                board_effect(effect_finished)
             except Exception:
                 self._busy = False
                 raise
@@ -227,7 +249,7 @@ class SceneView:
         """Animate an Engine-rejected move, chosen by result.reason.
 
         fell -> show_fall; fragile_broke -> show_fragile_fall;
-        bridge_closed -> show_fall until task 3.3b adds the bridge effect.
+        bridge_closed -> roll, play the switch/bridge events, then drop.
         """
         if result.state is not None or result.reason not in (
             "fell",
@@ -239,6 +261,17 @@ class SceneView:
         if result.reason == "fragile_broke":
             cell = self._fragile_cell(before, action)
             self.show_fragile_fall(before, action, cell, on_done)
+            return
+
+        if result.reason == "bridge_closed":
+            if before.pose is None:
+                raise NotImplementedError("Split cubes are rendered in task 3.3c")
+            self._show_landing_fall(
+                before,
+                action,
+                lambda done: self.board.animate_events(result.events, done),
+                on_done,
+            )
             return
 
         self.show_fall(before, action, on_done)

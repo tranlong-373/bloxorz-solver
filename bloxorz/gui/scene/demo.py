@@ -1,9 +1,10 @@
 """Standalone demonstration for Bloxorz scene animations.
 
-Owner: VT3 | Tasks: 3.1, 3.2.
+Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b.
 
 Run:
     python -m bloxorz.gui.scene.demo stages/fixtures/basic_01.json
+    python -m bloxorz.gui.scene.demo stages/original/stage_20.json  (C key)
 
 Controls:
     Arrow keys: Move the block
@@ -11,6 +12,7 @@ Controls:
     F: Test falling
     L: Test lying safely across F
     B: Test fragile break
+    C: Test a switch closing the bridge under the block
     T: Run 10 consecutive rolls
     G: Run 10 rolls ending at Goal
     W: Preview the win animation
@@ -18,6 +20,7 @@ Controls:
 """
 
 import sys
+from collections import deque
 
 from ursina import (
     AmbientLight,
@@ -274,6 +277,61 @@ def test_fragile_break():
     scene_view.show_illegal_step(before, action, result, on_done=fall_finished)
 
 
+def _find_bridge_closed_move():
+    """Search Engine-reachable intact states for a bridge_closed move."""
+    start = State(
+        pose=Pose.STANDING,
+        pos=stage.start,
+        bridges_open=stage.initial_bridges_open(),
+    )
+    seen = {start}
+    queue = deque([start])
+    while queue:
+        before = queue.popleft()
+        # Explore split states too, but only show intact-block cases (3.3b).
+        if before.pose is None:
+            actions = [Action(d, cube=cube) for d in Direction for cube in (0, 1)]
+        else:
+            actions = [Action(d) for d in Direction]
+        for action in actions:
+            result = step(stage, before, action)
+            if result.reason == "bridge_closed" and before.pose is not None:
+                return before, action, result
+            if result.outcome is Outcome.MOVED and result.state not in seen:
+                seen.add(result.state)
+                queue.append(result.state)
+    return None
+
+
+def test_bridge_closed():
+    """Show switch -> bridge closes -> block falls, as reported by Engine."""
+    global current_state
+
+    if scene_view.is_busy() or auto_running:
+        set_status("Cannot test bridge closing during animation")
+        return
+    if has_fallen or has_won:
+        set_status("Press R to reset first")
+        return
+
+    candidate = _find_bridge_closed_move()
+    if candidate is None:
+        set_status("No intact-block bridge_closed move; try stage_20.json")
+        return
+
+    before, action, result = candidate
+    current_state = before
+    scene_view.show_state(before)
+    set_status(f"C: {action.direction.name} triggers {', '.join(result.events)}")
+
+    def fall_finished():
+        global has_fallen
+        has_fallen = True
+        set_status("Bridge closed under the block; it fell. Press R to reset.")
+
+    scene_view.show_illegal_step(before, action, result, on_done=fall_finished)
+
+
 def test_fragile_safe_crossing():
     """Show a legal lying move across F without breaking the tile."""
     global current_state
@@ -349,6 +407,10 @@ def input(key):
         test_fragile_break()
         return
 
+    if key == "c":
+        test_bridge_closed()
+        return
+
     if key == "l":
         test_fragile_safe_crossing()
         return
@@ -384,10 +446,7 @@ def input(key):
         result = step(stage, before, action)
 
         # Engine decides why the move fell; Scene only presents that result.
-        if result.outcome is Outcome.ILLEGAL and result.reason in {
-            "fell",
-            "fragile_broke",
-        }:
+        if result.outcome is Outcome.ILLEGAL:
             set_status(f"Fall detected: {action.direction.name} ({result.reason})")
 
             def fall_finished():
