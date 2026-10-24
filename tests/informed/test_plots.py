@@ -125,6 +125,42 @@ def test_summary_csv_has_numbers_and_blank_for_missing(tmp_path):
     assert not (tmp_path / "original.md").exists()
 
 
+def test_notes_separate_summary_and_detail_tables(tmp_path):
+    original = [row("stage_01", "G1", "bfs")]
+    plots.make_tables(sample_rows(), tmp_path, original)
+    summary_md = (tmp_path / "summary.md").read_text(encoding="utf-8")
+    detail_md = (tmp_path / "detail.md").read_text(encoding="utf-8")
+    assert "chỉ tính trên các màn giải được" in summary_md and "kể cả lần không giải được" not in summary_md
+    assert "kể cả lần không giải được" in detail_md and "chỉ tính trên các màn giải được" not in detail_md
+    original_md = (tmp_path / "original.md").read_text(encoding="utf-8")
+    assert "chỉ tính trên các màn giải được" in original_md and "kể cả lần không giải được" in original_md
+
+
+def test_memory_unit_is_kib_everywhere(tmp_path):
+    plots.make_tables(sample_rows(), tmp_path)
+    for name in ("summary.md", "detail.md"):
+        text = (tmp_path / name).read_text(encoding="utf-8")
+        assert "(KiB)" in text and "KB" not in text
+
+
+def test_empty_csv_gives_clear_error(tmp_path, capsys):
+    with pytest.raises(ValueError, match="không có dòng"):
+        plots.make_tables([], tmp_path / "a")
+    with pytest.raises(ValueError, match="không có dòng"):
+        plots.make_tables(sample_rows(), tmp_path / "b", [])
+    with pytest.raises(ValueError, match="không có dòng"):
+        plots.write_csv(tmp_path / "x.csv", [])
+    # original CSV with only stage_30: error before the main tables are written
+    with pytest.raises(ValueError, match="stage_30"):
+        plots.make_tables(sample_rows(), tmp_path / "c", [row("stage_30", "G3", "bfs")])
+    assert not (tmp_path / "a").exists() and not (tmp_path / "b").exists() and not (tmp_path / "c").exists()
+
+    data = write(tmp_path / "results.csv", [])
+    assert plots.main([str(data), "--out", str(tmp_path / "out")]) == 1
+    assert "Lỗi" in capsys.readouterr().err
+    assert not (tmp_path / "out").exists()
+
+
 # ---------------------------------------------------------------------------
 # Charts (matplotlib is not installed on CI)
 # ---------------------------------------------------------------------------
@@ -162,3 +198,27 @@ def test_two_path_stage_found_for_the_chart():
     # a solved row with a missing number is skipped, not compared with None
     rows = sample_rows() + [row("g3_01", "G3", "bfs", length=""), row("g3_01", "G3", "ucs")]
     assert plots._two_path_stages(rows) == ["g2_01"]
+
+
+def test_charts_skip_when_csv_has_only_bfs_ucs_dfs(tmp_path, capsys):
+    # vd chạy benchmark.run --algos bfs ucs dfs: không có A* thì không có hình so sánh heuristic
+    pytest.importorskip("matplotlib")
+    rows = [r for r in sample_rows() if r["algorithm"] != "astar"]
+    rows += [row("g1_01", "G1", "dfs", length="45", cost="45.0")]
+    paths = plots.make_figures(rows, tmp_path)
+    assert sorted(p.name for p in paths) == ["expanded.png", "length_cost.png", "memory.png", "time.png"]
+    assert not (tmp_path / "heuristics.png").exists()
+    assert "Bỏ qua heuristics.png" in capsys.readouterr().out
+
+
+def test_charts_skip_when_nothing_to_compare(tmp_path, capsys):
+    pytest.importorskip("matplotlib")
+    paths = plots.make_figures([row("g1_01", "G1", "dfs")], tmp_path)
+    assert sorted(p.name for p in paths) == ["expanded.png", "memory.png", "time.png"]
+    out = capsys.readouterr().out
+    assert "Bỏ qua length_cost.png" in out and "Bỏ qua heuristics.png" in out
+    # A* có mà thiếu UCS thì cũng không có gì để chia
+    paths = plots.make_figures([row("g1_01", "G1", "astar")], tmp_path / "b")
+    assert "heuristics.png" not in [p.name for p in paths]
+    # thuật toán lạ thì bỏ qua hết, không lỗi chia 0
+    assert plots.make_figures([row("g1_01", "G1", "greedy")], tmp_path / "c") == []
