@@ -20,15 +20,17 @@ PLANNED = {"G1": 4, "G2": 3, "G3": 4, "G4": 3, "G5": 3}
 
 BENCH_IDS = sorted(p.stem for p in BENCH_DIR.glob("*.json"))
 
-# Stages expected in the repo so far, add the new ids when the next batch lands
-# (g2_03 and g4_03 from task 2.5)
+# All 17 stages (g2_03 and g4_01 are VT2's stages from task 2.5)
 EXPECTED_IDS = [
     "g1_01", "g1_02", "g1_03", "g1_04",
-    "g2_01", "g2_02",
+    "g2_01", "g2_02", "g2_03",
     "g3_01", "g3_02", "g3_03", "g3_04",
-    "g4_01", "g4_02",
+    "g4_01", "g4_02", "g4_03",
     "g5_01", "g5_02", "g5_03",
 ]
+
+# The 5 solver configurations of the benchmark
+SOLVERS = {"bfs", "dfs", "ucs", "astar", "astar_manhattan"}
 
 
 def _raw(stage_id):
@@ -74,6 +76,7 @@ def _used_mechanisms(stage, results):
 # ---------------------------------------------------------------------------
 
 def test_bench_ids_match_expected():
+    assert len(EXPECTED_IDS) == sum(PLANNED.values())
     # A missing or unexpected stage file must fail here
     missing = sorted(set(EXPECTED_IDS) - set(BENCH_IDS))
     extra = sorted(set(BENCH_IDS) - set(EXPECTED_IDS))
@@ -133,7 +136,8 @@ def test_group_mechanisms(stage_id):
     elif stage.group == "G3":
         assert stage.switches and stage.bridges and "split" not in kinds
     elif stage.group == "G4":
-        assert "split" in kinds
+        # only split switches: no F, no bridge, no soft/heavy switch
+        assert kinds == {"split"} and "F" not in cells and not stage.bridges
     else:
         has = {"fragile": "F" in cells, "switch": bool(stage.bridges or kinds - {"split"}), "split": "split" in kinds}
         assert sum(has.values()) >= 2, has
@@ -143,10 +147,13 @@ def test_group_mechanisms(stage_id):
 # Solvable, and the solution really uses the mechanism of the group
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("algorithm", sorted(ALGORITHMS))
+def test_all_five_solvers_are_registered():
+    assert SOLVERS <= set(ALGORITHMS)
+
+
+@pytest.mark.parametrize("algorithm", sorted(SOLVERS))
 @pytest.mark.parametrize("stage_id", BENCH_IDS)
 def test_every_solver_solves_and_solution_is_valid(stage_id, algorithm):
-    # Runs every solver already on main (A* is picked up when task 5.2 is merged)
     stage = load_stage(BENCH_DIR / f"{stage_id}.json")
     r = run(algorithm, stage, limits=Limits(timeout_s=60.0))
     assert r.status == "solved"
@@ -183,9 +190,11 @@ def test_g3_covers_soft_heavy_toggle_permanent():
 def test_g4_solution_splits_and_merges(stage_id):
     stage = load_stage(BENCH_DIR / f"{stage_id}.json")
     r = run("bfs", stage)
-    events = [e for res in _replay(stage, r.actions) for e in res.events]
+    results = _replay(stage, r.actions)
+    events = [e for res in results for e in res.events]
     assert "split" in events and "merge" in events
     assert any(a.cube is not None for a in r.actions)
+    assert _used_mechanisms(stage, results) == {"split"}
 
 
 @pytest.mark.parametrize("stage_id", _ids_in("G5"))
@@ -193,6 +202,16 @@ def test_g5_solution_uses_two_mechanisms(stage_id):
     stage = load_stage(BENCH_DIR / f"{stage_id}.json")
     used = _used_mechanisms(stage, _replay(stage, run("bfs", stage).actions))
     assert len(used) >= 2, used
+
+
+@pytest.mark.parametrize("algorithm", ["bfs", "ucs"])
+def test_g5_02_splits_twice_and_fires_heavy_and_soft(algorithm):
+    # Check the note of g5_02 (original level 26) against the real solution
+    stage = load_stage(BENCH_DIR / "g5_02.json")
+    results = _replay(stage, run(algorithm, stage).actions)
+    events = [e for r in results for e in r.events]
+    assert events.count("split") == 2 and events.count("merge") == 2
+    assert {sw.kind for sw in _fired_switches(stage, results)} == {"heavy", "soft"}
 
 
 def test_g5_has_a_stage_using_fragile_and_split():
