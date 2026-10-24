@@ -144,18 +144,56 @@ def convert_map(map_data: dict[str, Any], stage_num: int) -> dict[str, Any]:
             switches_list.append(switch_data)
             switch_counter += 1
 
+    if stage_num == 23:
+        # adjust stage 23 bridges and switches to match original bloxorz reference
+        adjusted_bridges = []
+        for b in bridges_list:
+            if b["id"] == "bridgeC":
+                # separate top bridge and left bridge
+                top_cells = [cell for cell in b["cells"] if cell[0] == 2]
+                left_cells = [cell for cell in b["cells"] if cell[0] == 6]
+                adjusted_bridges.append({
+                    "id": "bridgeC",
+                    "cells": sorted(top_cells),
+                    "initially_open": True,
+                })
+                adjusted_bridges.append({
+                    "id": "bridgeF",
+                    "cells": sorted(left_cells),
+                    "initially_open": False,
+                })
+            elif b["id"] == "bridgeE":
+                # bridge e is initially open in the original game
+                bridge_e_copy = dict(b)
+                bridge_e_copy["initially_open"] = True
+                adjusted_bridges.append(bridge_e_copy)
+            else:
+                adjusted_bridges.append(b)
+
+        adjusted_bridges.sort(key=lambda b: b["id"])
+        bridges_list = adjusted_bridges
+
+        # update switches connected to the separated bridges
+        for sw in switches_list:
+            if sw["id"] == "sw_2":
+                sw["bridges"] = ["bridgeF"]
+            elif sw["id"] == "sw_3":
+                sw["bridges"] = ["bridgeC", "bridgeE"]
+            elif sw["id"] == "sw_6":
+                sw["bridges"] = ["bridgeF"]
+
     stage_id = f"stage_{stage_num:02d}"
     stage_data: dict[str, Any] = {
         "id": stage_id,
         "group": group,
-        "grid": grid_strings,
-        "bridges": bridges_list,
-        "switches": switches_list,
     }
     if stage_num == 30:
         stage_data["note"] = (
             "Excluded from active stages and benchmarks: quick_bloxorz source map is missing floor tiles, making the level unsolvable."
         )
+    stage_data["grid"] = grid_strings
+    stage_data["bridges"] = bridges_list
+    stage_data["switches"] = switches_list
     return stage_data
 
 
@@ -172,7 +210,7 @@ def convert_all(input_dir: Path, output_dir: Path) -> None:
         stage_dict = convert_map(raw_content, stage_num)
 
         output_path = output_dir / f"stage_{stage_num:02d}.json"
-        output_path.write_text(json.dumps(stage_dict, indent=2), encoding="utf-8")
+        output_path.write_text(json.dumps(stage_dict, indent=2), encoding="utf-8", newline="\n")
         print(f"Converted {input_path.name} -> {output_path.name} ({stage_dict['group']})")
 
 

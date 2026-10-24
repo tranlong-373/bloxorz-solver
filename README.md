@@ -41,7 +41,13 @@ tests/            test
 sandbox/          code nháp (không nộp)
 ```
 
-## Nguồn tham khảo
+## Nguồn tham khảo và bộ màn gốc
 Bộ 33 màn gốc trong `stages/original/` được chuyển đổi từ dự án [quick_bloxorz](https://github.com/jgordon510/quick_bloxorz) của Jeffrey Gordon (giấy phép Creative Commons Attribution - CC BY).
-*Lưu ý: Màn 30 tạm thời được loại khỏi danh sách màn hoạt động và benchmark do file map gốc của quick_bloxorz thiếu ô sàn khiến màn chơi không thể giải được (dữ liệu vẫn được giữ trong `stages/original/stage_30.json` để đối chiếu).*
+
+### Quyết định bộ màn và loại trừ stage_30
+- **Phạm vi sử dụng**: Nhóm giữ đầy đủ 33 file chuyển đổi (`stage_01.json` đến `stage_33.json`) trong thư mục `stages/original/` để phục vụ đối chiếu nguyên trạng với dữ liệu nguồn. Tuy nhiên, chỉ **32 màn** được đưa vào danh sách chơi thực tế và bộ benchmark đánh giá thuật toán; `stage_30` được loại trừ rõ ràng trước khi chạy.
+- **Bằng chứng đối chiếu cho stage_30**:
+  - File bản đồ nguồn `bloxorz30.json` của `quick_bloxorz` bị lỗi thiếu các ô sàn hợp lệ so với bản game Bloxorz gốc (DX Interactive 2007).
+  - Vị trí xuất phát nằm tại `(4, 2)` bị bao quanh bởi các ô void và ô dễ vỡ (`F`). Do thiếu các ô sàn chuyển tiếp cần thiết để vượt qua bẫy ô dễ vỡ và kích hoạt công tắc, khối không thể tìm được bất kỳ chuỗi di chuyển hợp lệ nào để tiếp cận đích Goal tại `(1, 4)`. Thuật toán BFS duyệt cạn toàn bộ không gian trạng thái đạt được và xác nhận màn chơi không thể giải được (`unsolvable`).
+  - Theo thống nhất của nhóm, dự án không tự ý sửa đổi dữ liệu nguồn để tạo ra lời giải nhân tạo, mà giữ nguyên dữ liệu chuyển đổi để đối chiếu và thực hiện loại trừ `stage_30` ở tầng ứng dụng và kiểm thử.
 
