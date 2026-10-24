@@ -46,8 +46,9 @@ def get_menu_stages(repo_root: Path | str | None = None) -> list[Stage]:
 def format_stage_title(stage_id: str, max_len: int = 12) -> str:
     """Friendly title display for menu buttons with truncation for long names."""
     if stage_id.startswith("stage_"):
-        num = stage_id.split("_")[1]
-        return f"Màn {int(num):02d}"
+        suffix = stage_id.removeprefix("stage_")
+        if suffix.isdecimal():
+            return f"Màn {int(suffix):02d}"
 
     title = stage_id.replace("_", " ").title()
     if len(title) > max_len:
@@ -62,6 +63,8 @@ class UI:
         self.controller = controller
         self.stages = get_menu_stages()
         self.current_tab = "G1"
+        self.current_page = 0
+        self.page_size = 25
         self.grid_buttons: list[Any] = []
 
         # Top-Left HUD Info Text
@@ -87,9 +90,9 @@ class UI:
             text="Restart (R)",
             color=color.hex("#2980b9") if color else None,
             highlight_color=color.hex("#3498db") if color else None,
-            scale=(0.15, 0.048),
+            scale=(0.17, 0.054),
             radius=0.18,
-            position=(0.74, 0.445),
+            position=(0.72, 0.445),
             parent=camera.ui if camera else None,
             on_click=self.controller.restart,
         )
@@ -98,9 +101,9 @@ class UI:
             text="New Game (N)",
             color=color.hex("#d35400") if color else None,
             highlight_color=color.hex("#e67e22") if color else None,
-            scale=(0.17, 0.048),
+            scale=(0.19, 0.054),
             radius=0.18,
-            position=(0.56, 0.445),
+            position=(0.52, 0.445),
             parent=camera.ui if camera else None,
             on_click=self.toggle_menu,
         )
@@ -120,11 +123,10 @@ class UI:
             parent=self.menu_panel,
             model="quad",
             scale=(1.12, 0.78),
-            color=color.rgba(18, 24, 34, 250) if color else None,
+            color=color.hex("#121822") if color else None,
             position=(0, 0, 0.05),
         )
 
-        # Modal Header Title
         Text(
             text="CHỌN MÀN CHƠI",
             parent=self.menu_panel,
@@ -133,7 +135,6 @@ class UI:
             color=color.hex("#f39c12") if color else None,
         )
 
-        # Close button
         Button(
             text="Đóng",
             parent=self.menu_panel,
@@ -145,7 +146,6 @@ class UI:
             on_click=self.close_menu,
         )
 
-        # Elegant segmented tab bar frame (Khung bao quanh thanh chọn nhóm)
         self.tab_frame_border = Entity(
             parent=self.menu_panel,
             model="quad",
@@ -167,12 +167,13 @@ class UI:
             ("G2", "Nhóm G2"),
             ("G3", "Nhóm G3"),
             ("G4", "Nhóm G4"),
+            ("G5", "Nhóm G5"),
             ("ALL", "Tất cả"),
         ]
 
         self.tab_buttons: dict[str, Any] = {}
-        tab_w = 0.188
-        spacing_t = 0.198
+        tab_w = 0.155
+        spacing_t = 0.163
         start_tx = -((len(tabs) - 1) * spacing_t) / 2
 
         for i, (tab_key, tab_label) in enumerate(tabs):
@@ -195,11 +196,34 @@ class UI:
 
         # Container for stage grid buttons
         self.grid_container = Entity(parent=self.menu_panel)
+        self.previous_page_button = Button(
+            text="Trước",
+            parent=self.menu_panel,
+            scale=(0.13, 0.042),
+            position=(-0.18, -0.30),
+            on_click=self.previous_page,
+        )
+        self.next_page_button = Button(
+            text="Sau",
+            parent=self.menu_panel,
+            scale=(0.13, 0.042),
+            position=(0.18, -0.30),
+            on_click=self.next_page,
+        )
+        self.page_text = Text(
+            text="",
+            parent=self.menu_panel,
+            position=(-0.03, -0.31),
+            scale=0.8,
+        )
         self.render_stage_grid()
 
     def switch_tab(self, tab_key: str) -> None:
         """Switch active group tab and rebuild grid."""
+        if tab_key not in self.tab_buttons:
+            return
         self.current_tab = tab_key
+        self.current_page = 0
         # Highlight active tab button, dim inactive ones
         for k, btn in self.tab_buttons.items():
             if k == tab_key:
@@ -222,6 +246,11 @@ class UI:
         else:
             active_stages = [s for s in self.stages if s.group == self.current_tab]
 
+        page_count = max(1, (len(active_stages) + self.page_size - 1) // self.page_size)
+        self.current_page = min(self.current_page, page_count - 1)
+        start = self.current_page * self.page_size
+        visible_stages = active_stages[start : start + self.page_size]
+
         cols = 5
         btn_w = 0.188
         btn_h = 0.052
@@ -230,7 +259,7 @@ class UI:
         start_x = -((cols - 1) * spacing_x) / 2
         start_y = 0.155
 
-        for i, stg in enumerate(active_stages):
+        for i, stg in enumerate(visible_stages):
             col_idx = i % cols
             row_idx = i // cols
             x = start_x + col_idx * spacing_x
@@ -252,6 +281,33 @@ class UI:
                 on_click=make_click_handler(stg),
             )
             self.grid_buttons.append(btn)
+
+        can_go_back = self.current_page > 0
+        can_go_forward = self.current_page + 1 < page_count
+        self.previous_page_button.enabled = True
+        self.next_page_button.enabled = True
+        self.previous_page_button.color = color.hex(
+            "#1e293b" if can_go_back else "#6b7280"
+        ) if color else None
+        self.next_page_button.color = color.hex(
+            "#1e293b" if can_go_forward else "#6b7280"
+        ) if color else None
+        self.page_text.text = f"{self.current_page + 1} / {page_count}"
+
+    def previous_page(self) -> None:
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.render_stage_grid()
+
+    def next_page(self) -> None:
+        if self.current_tab == "ALL":
+            active_count = len(self.stages)
+        else:
+            active_count = sum(stage.group == self.current_tab for stage in self.stages)
+        page_count = max(1, (active_count + self.page_size - 1) // self.page_size)
+        if self.current_page + 1 < page_count:
+            self.current_page += 1
+            self.render_stage_grid()
 
     def select_stage(self, stage: Stage) -> None:
         """Load chosen stage and dismiss the level select menu."""

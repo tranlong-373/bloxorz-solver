@@ -46,6 +46,8 @@ def input(key: str) -> None:
 
     # Arrow keys and WASD drive manual movement
     if key in ARROW_KEYS:
+        if _ui.menu_panel.enabled:
+            return
         _controller.on_direction(ARROW_KEYS[key])
         return
 

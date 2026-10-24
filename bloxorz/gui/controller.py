@@ -17,9 +17,11 @@ class GameController:
         self.state: State | None = None
         self.moves: int = 0
         self.status: str = "playing"  # playing, falling, lost, winning, won
+        self._session = 0
 
     def load(self, stage: Stage) -> None:
         """Load a stage, initialize state, reset moves and status."""
+        self._session += 1
         self.stage = stage
         self.state = initial_state(stage)
         self.moves = 0
@@ -45,21 +47,30 @@ class GameController:
             before = self.state
             self.moves += 1
             self.state = res.state
-            self.scene.show_state(self.state)
-            self.scene.animate_step(before, action, res, on_done=self._after_move)
+            session = self._session
+            self.scene.animate_step(
+                before, action, res, on_done=lambda: self._after_move(session)
+            )
         elif res.outcome == Outcome.ILLEGAL:
             before = self.state
             self.status = "falling"
-            self.scene.show_fall(before, action, on_done=lambda: self._set("lost"))
+            session = self._session
+            self.scene.show_fall(
+                before, action, on_done=lambda: self._set_if_current(session, "lost")
+            )
 
-    def _after_move(self) -> None:
+    def _after_move(self, session: int) -> None:
         """Check victory condition after a valid move finishes animating."""
+        if session != self._session:
+            return
         if self.stage is not None and self.state is not None and is_goal(self.stage, self.state):
             self.status = "winning"
-            self.scene.show_win(on_done=lambda: self._set("won"))
+            self.scene.show_win(
+                on_done=lambda: self._set_if_current(session, "won")
+            )
         else:
             self.status = "playing"
 
-    def _set(self, status: str) -> None:
-        """Update game status."""
-        self.status = status
+    def _set_if_current(self, session: int, status: str) -> None:
+        if session == self._session:
+            self.status = status

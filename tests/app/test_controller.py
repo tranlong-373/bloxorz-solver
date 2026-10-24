@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
 from bloxorz.gui.controller import GameController
 from bloxorz.gui.fake_scene import FakeScene
 from bloxorz.loader import load_stage
+from bloxorz.engine import initial_state
 from bloxorz.model import Direction, Pose
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -158,11 +158,76 @@ def test_controller_unloaded_safeguards():
 def test_fake_scene_methods():
     scene = FakeScene()
     stage = load_stage(FIXTURES_DIR / "basic_01.json")
-    scene.load_stage(stage, FakeScene())
+    scene.load_stage(stage, initial_state(stage))
     assert scene.stage is stage
     scene.set_selected(1)
     assert scene.selected_cube == 1
     scene.show_state(None)
     assert scene.state is None
+
+
+def test_old_move_callback_does_not_change_restarted_game():
+    stage = load_stage(FIXTURES_DIR / "basic_01.json")
+    scene = FakeScene()
+    controller = GameController(scene)
+    controller.load(stage)
+    callbacks = []
+    scene.animate_step = lambda before, action, result, on_done: callbacks.append(on_done)
+
+    controller.on_direction(Direction.RIGHT)
+    assert controller.moves == 1
+    controller.restart()
+    callbacks[0]()
+
+    assert controller.moves == 0
+    assert controller.status == "playing"
+    assert controller.state == initial_state(stage)
+
+
+def test_old_fall_callback_does_not_lose_restarted_game():
+    stage = load_stage(FIXTURES_DIR / "basic_01.json")
+    scene = FakeScene()
+    controller = GameController(scene)
+    controller.load(stage)
+    callbacks = []
+    scene.show_fall = lambda before, action, on_done: callbacks.append(on_done)
+
+    controller.on_direction(Direction.LEFT)
+    assert controller.status == "falling"
+    controller.restart()
+    callbacks[0]()
+
+    assert controller.status == "playing"
+    assert controller.state == initial_state(stage)
+
+
+def test_old_win_callback_does_not_win_restarted_game():
+    stage = load_stage(FIXTURES_DIR / "basic_01.json")
+    scene = FakeScene()
+    controller = GameController(scene)
+    controller.load(stage)
+    move_callbacks = []
+    win_callbacks = []
+    scene.animate_step = lambda before, action, result, on_done: move_callbacks.append(on_done)
+    scene.show_win = lambda on_done: win_callbacks.append(on_done)
+
+    controller.on_direction(Direction.RIGHT)
+    move_callbacks.pop(0)()
+    controller.on_direction(Direction.RIGHT)
+    move_callbacks.pop(0)()
+    assert controller.status == "winning"
+
+    controller.restart()
+    win_callbacks[0]()
+
+    assert controller.status == "playing"
+    assert controller.state == initial_state(stage)
+
+
+def test_format_stage_title_handles_non_numeric_stage_id():
+    from bloxorz.gui.ui import format_stage_title
+
+    assert format_stage_title("stage_07") == "Màn 07"
+    assert format_stage_title("stage_bonus") == "Stage Bonus"
 
 
