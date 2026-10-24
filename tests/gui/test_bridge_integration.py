@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from bloxorz.engine import Outcome, StepResult, initial_state, step
+from bloxorz.engine import Outcome, initial_state, step
 from bloxorz.loader import load_stage
-from bloxorz.model import Action, Direction, Pose, State
+from bloxorz.model import Action, Direction
 from bloxorz.stage import Bridge, Stage, Switch
 
 FIXTURES = Path(__file__).resolve().parents[2] / "stages" / "fixtures"
@@ -210,21 +210,6 @@ def test_bridge_closed_rolls_then_plays_events_then_drops(scene_env):
     # roll -> switch pulse -> bridge closes -> block drops.
     assert steps == ["roll", "anim", "anim", "drop"]
     assert timeline[2][1] == (0, 0, 0)
-
-
-def test_bridge_closed_for_split_cubes_is_left_to_task_3_3c(scene_env):
-    make_scene, *_ = scene_env
-    stage = _bridge_closing_stage()
-    scene = make_scene(stage, initial_state(stage))
-    split = State(None, (1, 1), (1, 5), frozenset({"b1"}))
-
-    with pytest.raises(NotImplementedError, match="3.3c"):
-        scene.show_illegal_step(
-            split,
-            Action(Direction.RIGHT, cube=0),
-            StepResult(Outcome.ILLEGAL, None, "bridge_closed", ("switch:sw1",)),
-            lambda: None,
-        )
 
 
 @pytest.mark.parametrize("move", ["animate_step", "bridge_closed"])

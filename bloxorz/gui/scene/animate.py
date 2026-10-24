@@ -1,6 +1,6 @@
 """Animation helpers for rolling, falling, and winning.
 
-Owner: VT3 | Tasks: 3.2, 3.3a.
+Owner: VT3 | Tasks: 3.2, 3.3a, 3.3b, 3.3c.
 """
 
 from ursina import Entity, curve, destroy, scene
@@ -11,6 +11,7 @@ from bloxorz.model import Direction
 ROLL_DURATION = 0.25
 BRIDGE_DURATION = 0.3
 FRAGILE_BREAK_DURATION = 0.3
+SPLIT_DURATION = 0.25
 
 
 def play_fragile_break(tile, on_finished):
@@ -157,6 +158,27 @@ def play_drop(block, on_finished):
         on_finished()
 
     drop_animation.append(finish)
+
+
+def play_split(cubes, on_finished):
+    """Grow the two cubes at the Engine's split targets, then finish once."""
+    remaining = len(cubes)
+
+    def one_done():
+        nonlocal remaining
+        remaining -= 1
+        if remaining == 0:
+            on_finished()
+
+    for cube in cubes:
+        target = tuple(cube.scale)
+        cube.scale = (0, 0, 0)
+        animation = cube.animate_scale(
+            target,
+            duration=SPLIT_DURATION,
+            curve=curve.linear,
+        )
+        animation.append(one_done)
 
 
 WIN_DURATION = 0.6
