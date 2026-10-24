@@ -7,7 +7,7 @@ import logging
 
 from ursina import camera
 
-from .animate import play_drop, play_fall, play_roll, play_win
+from .animate import play_fall, play_roll, play_win
 from .block import BlockView
 from .board import Board
 
@@ -118,8 +118,8 @@ class SceneView:
             self._busy = False
             raise
 
-    def show_fall(self, before, action, on_done, result=None):
-        """Animate an Engine-rejected move that falls off the board."""
+    def show_fall(self, before, action, on_done):
+        """Animate the block falling after an invalid move."""
 
         if self._busy:
             raise RuntimeError("SceneView is already animating")
@@ -141,23 +141,11 @@ class SceneView:
             on_done()
 
         try:
-            if result is not None and result.reason == "bridge_closed":
-                # The Engine rejected the landing after its switch closed a
-                # bridge under the block. Roll to that landing, apply only
-                # confirmed events, then drop from the resulting position.
-                def roll_finished():
-                    def bridges_finished():
-                        play_drop(self.block.entity, finish)
-
-                    self.board.animate_events(result.events, bridges_finished)
-
-                play_roll(self.block.entity, action.direction, roll_finished)
-            else:
-                play_fall(
-                    self.block.entity,
-                    action.direction,
-                    finish,
-                )
+            play_fall(
+                self.block.entity,
+                action.direction,
+                finish,
+            )
         except Exception:
             self._busy = False
             raise
