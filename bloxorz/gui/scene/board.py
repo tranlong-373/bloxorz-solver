@@ -2,7 +2,7 @@
 
 from ursina import Entity, color, destroy
 
-from .animate import BRIDGE_DURATION
+from .animate import BRIDGE_DURATION, play_fragile_break
 from .theme import TILE_COLORS, SWITCH_COLORS, cell_to_world
 
 
@@ -13,6 +13,9 @@ class Board:
         self.bridge_tiles = {}
         self.switch_entities = {}
         self._open_bridges = set()
+        self.fragile_tiles = {}
+        self._fragile_defaults = {}
+        self._broken_fragile = set()
         self._busy = False
         self._generation = 0
 
@@ -30,6 +33,9 @@ class Board:
         self.bridge_tiles.clear()
         self.switch_entities.clear()
         self._open_bridges.clear()
+        self.fragile_tiles.clear()
+        self._fragile_defaults.clear()
+        self._broken_fragile.clear()
 
     def build(self, stage):
         """Build floor, bridge overlays, and distinct switch models."""
@@ -64,6 +70,10 @@ class Board:
                     color=tile_color,
                 )
                 self.tiles[cell] = tile
+
+                if symbol == "F":
+                    self.fragile_tiles[cell] = tile
+                    self._fragile_defaults[cell] = (tile.position, tile.scale)
 
                 if bridge_id is not None:
                     self.bridge_tiles.setdefault(bridge_id, []).append(tile)
@@ -255,4 +265,48 @@ class Board:
             raise
 
     def is_busy(self):
+        """Return True while a bridge, switch or fragile animation runs."""
         return self._busy
+
+    def break_fragile(self, cell, on_done):
+        """Animate the specified F tile after the Engine reports a break."""
+        if self._busy:
+            raise RuntimeError("Board is already animating")
+        if cell not in self.fragile_tiles:
+            raise ValueError(f"No fragile tile at {cell}")
+        if cell in self._broken_fragile:
+            on_done()
+            return
+
+        self._broken_fragile.add(cell)
+        self._busy = True
+        generation = self._generation
+        callback_called = False
+
+        def finish():
+            nonlocal callback_called
+            if callback_called:
+                return
+            if generation != self._generation:
+                return
+            callback_called = True
+            self._busy = False
+            on_done()
+
+        try:
+            play_fragile_break(self.fragile_tiles[cell], finish)
+        except Exception:
+            if not callback_called:
+                self._busy = False
+                self._broken_fragile.discard(cell)
+            raise
+
+    def reset_fragile(self):
+        """Restore fragile tiles when the demo restarts the current stage."""
+        if self._busy:
+            raise RuntimeError("Cannot reset fragile tiles during animation")
+        for cell, tile in self.fragile_tiles.items():
+            position, scale = self._fragile_defaults[cell]
+            tile.position = position
+            tile.scale = scale
+        self._broken_fragile.clear()
