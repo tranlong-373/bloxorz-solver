@@ -107,7 +107,7 @@ class SceneView:
             place(size * 2.5 + 4, (0.0, 0.0))
             return
 
-        from panda3d.core import Point2, Point3
+        from panda3d.core import LVecBase4f, Point3
 
         # Board corners, including the top of a standing block.
         corners = [
@@ -116,17 +116,25 @@ class SceneView:
             for z in (0.5, -(stage.rows - 0.5))
             for y in (0, 2)
         ]
+        projection = lens.getProjectionMat()
 
         def extents(distance, pan):
-            """(left, right, bottom, top) of the board on screen, or None."""
+            """(left, right, bottom, top) of the board on screen, or None.
+
+            Uses the projection matrix rather than lens.project(), which
+            reports failure for any point outside the view; a point off
+            screen still has screen coordinates. Only a corner behind the
+            camera makes the extents meaningless.
+            """
             place(distance, pan)
             xs, ys = [], []
             for corner in corners:
-                projected = Point2()
-                if not lens.project(camera.getRelativePoint(scene, corner), projected):
+                point = camera.getRelativePoint(scene, corner)
+                clip = projection.xform(LVecBase4f(point[0], point[1], point[2], 1))
+                if clip[3] <= 1e-6:
                     return None
-                xs.append(projected.x)
-                ys.append(projected.y)
+                xs.append(clip[0] / clip[3])
+                ys.append(clip[1] / clip[3])
             return min(xs), max(xs), min(ys), max(ys)
 
         def fit_distance(pan):
@@ -155,14 +163,22 @@ class SceneView:
         pan = (0.0, 0.0)
         for _ in range(3):
             distance = fit_distance(pan)
-            here = middle_of(extents(distance, pan))
+            here_box = extents(distance, pan)
             # Screen shift per unit slide, measured with a small test slide.
-            step_x = middle_of(extents(distance, (pan[0] + 0.5, pan[1])))[0] - here[0]
-            step_y = middle_of(extents(distance, (pan[0], pan[1] + 0.5)))[1] - here[1]
+            slid_x = extents(distance, (pan[0] + 0.5, pan[1]))
+            slid_y = extents(distance, (pan[0], pan[1] + 0.5))
+            if here_box is None or slid_x is None or slid_y is None:
+                break  # cannot measure here: keep the last safe framing
+            here = middle_of(here_box)
+            step_x = middle_of(slid_x)[0] - here[0]
+            step_y = middle_of(slid_y)[1] - here[1]
+            if abs(step_x) < 1e-4 or abs(step_y) < 1e-4:
+                break
             pan = (
                 pan[0] + 0.5 * (goal[0] - here[0]) / step_x,
                 pan[1] + 0.5 * (goal[1] - here[1]) / step_y,
             )
+        # fit_distance always ends on a distance that fits (or its far limit).
         place(fit_distance(pan), pan)
 
     def show_state(self, state):
