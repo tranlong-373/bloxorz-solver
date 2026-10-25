@@ -1,4 +1,4 @@
-"""Tìm kiếm theo chiều rộng (BFS). VT1, task 1.4."""
+"""Tìm kiếm theo chiều rộng (BFS)."""
 from collections import deque
 
 from bloxorz.engine import initial_state, is_goal, successors
@@ -12,6 +12,7 @@ def bfs(stage, ctx):
     if is_goal(stage, start):
         return ()
     parents = {start: None}  # vừa lưu đường đi, vừa đánh dấu trạng thái đã gặp
+    # Hàng đợi FIFO giúp duyệt hết mức hiện tại trước khi sang mức sâu hơn.
     queue = deque([start])
     while queue:
         s = queue.popleft()

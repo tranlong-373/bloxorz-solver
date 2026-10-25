@@ -1,4 +1,4 @@
-"""Vòng tìm kiếm dùng chung cho UCS và A*. VT5, task 5.1."""
+"""Vòng tìm kiếm dùng chung cho UCS và A*."""
 import heapq
 import itertools
 

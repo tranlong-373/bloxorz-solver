@@ -1,4 +1,4 @@
-"""Chi phí nước đi: 1, cộng 4 khi phần vừa di chuyển đáp lên ô dễ vỡ. VT5 (5.1)."""
+"""Chi phí nước đi: 1, cộng 4 khi phần vừa di chuyển đáp lên ô dễ vỡ."""
 from bloxorz.engine.rules import footprint
 from bloxorz.model import Action, State
 from bloxorz.stage import Stage

@@ -1,4 +1,4 @@
-"""A* với hai hàm ước lượng relaxed và Manhattan. VT5, task 5.2."""
+"""A* với hai hàm ước lượng relaxed và Manhattan."""
 from bloxorz.search.base import register
 from bloxorz.search.heuristics import make_heuristic
 from bloxorz.search.ucs import best_first

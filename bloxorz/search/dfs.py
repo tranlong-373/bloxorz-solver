@@ -1,4 +1,4 @@
-"""Tìm kiếm theo chiều sâu (DFS) có đánh dấu trạng thái. VT1, task 1.5."""
+"""Tìm kiếm theo chiều sâu (DFS) có đánh dấu trạng thái."""
 from bloxorz.engine import initial_state, is_goal, successors
 from bloxorz.search.base import reconstruct, register
 

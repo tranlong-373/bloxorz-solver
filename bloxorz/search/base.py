@@ -1,4 +1,4 @@
-"""Khung chạy thuật toán: giới hạn, kết quả, bảng đăng ký và đo tìm kiếm. VT1 (1.3)."""
+"""Khung chạy thuật toán: giới hạn, kết quả, bảng đăng ký và đo tìm kiếm."""
 import threading
 import time
 import tracemalloc

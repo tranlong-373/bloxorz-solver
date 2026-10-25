@@ -1,4 +1,4 @@
-"""Hai hàm ước lượng relaxed và Manhattan cho A*. VT5, task 5.2."""
+"""Hai hàm ước lượng relaxed và Manhattan cho A*."""
 from collections import deque
 
 from bloxorz.engine.rules import ROLL, footprint
