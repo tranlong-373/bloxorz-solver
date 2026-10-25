@@ -29,7 +29,6 @@ from ursina import (
     DirectionalLight,
     Text,
     Ursina,
-    window,
 )
 
 from bloxorz.engine.rules import Outcome, footprint, is_goal, step
@@ -565,12 +564,13 @@ def main():
     stage = load_stage(sys.argv[1])
 
     # The standalone demo owns the Ursina application.
-    app = Ursina()
+    # Pass the title at creation; setting window.title later did not reach
+    # the X11 window name, so the window showed up as "ursina".
+    app = Ursina(title=f"Bloxorz Scene Demo - {stage.id}")
     AmbientLight(color=(0.65, 0.65, 0.65, 1))
 
     sun = DirectionalLight()
     sun.look_at((1, -2, -1))
-    window.title = f"Bloxorz Scene Demo - {stage.id}"
 
     scene_view = SceneView()
 
