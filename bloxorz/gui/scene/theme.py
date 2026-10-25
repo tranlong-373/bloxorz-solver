@@ -31,9 +31,10 @@ TILE_COLORS = {
 TILE_SIZE = 0.94
 TILE_THICKNESS = 0.3
 
-# Each soft/heavy switch gets its own hue and its bridges share it, so the
-# player sees which switch drives which bridge. The symbol shape on the
-# switch shows its kind (round = soft, X = heavy, bars = split).
+# Each bridge gets its own hue and every switch that drives it shares it,
+# so the player sees which buttons act on which bridge (several switches
+# may drive one bridge). The symbol shape on the switch shows its kind
+# (round = soft, X = heavy, bars = split).
 LINK_PALETTE = [
     (70, 185, 230),
     (95, 205, 105),
@@ -78,17 +79,19 @@ def rgb(value, shade=1.0):
 
 
 def switch_link_colors(stage):
-    """(switch id -> rgb, bridge id -> rgb) for soft/heavy switches and their bridges."""
-    switch_rgb, bridge_rgb = {}, {}
-    linked = sorted(
-        (switch for switch in stage.switches if switch.kind in ("soft", "heavy")),
-        key=lambda switch: switch.id,
-    )
-    for index, switch in enumerate(linked):
-        value = LINK_PALETTE[index % len(LINK_PALETTE)]
-        switch_rgb[switch.id] = value
-        for bridge_id in switch.bridges:
-            bridge_rgb.setdefault(bridge_id, value)
+    """(switch id -> rgb, bridge id -> rgb): one hue per bridge, shared by its switches.
+
+    A switch that drives several bridges takes the hue of the first one.
+    """
+    bridge_rgb = {
+        bridge.id: LINK_PALETTE[index % len(LINK_PALETTE)]
+        for index, bridge in enumerate(sorted(stage.bridges, key=lambda bridge: bridge.id))
+    }
+    switch_rgb = {
+        switch.id: bridge_rgb[switch.bridges[0]]
+        for switch in stage.switches
+        if switch.kind in ("soft", "heavy") and switch.bridges and switch.bridges[0] in bridge_rgb
+    }
     return switch_rgb, bridge_rgb
 
 

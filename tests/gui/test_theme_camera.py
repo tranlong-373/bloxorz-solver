@@ -9,7 +9,7 @@ from bloxorz.stage import Bridge, Stage, Switch
 STAGE_20 = Path(__file__).resolve().parents[2] / "stages" / "original" / "stage_20.json"
 
 
-def test_each_switch_shares_its_color_with_the_bridges_it_drives(scene_modules):
+def test_each_bridge_has_a_color_shared_by_every_switch_driving_it(scene_modules):
     theme = importlib.import_module("bloxorz.gui.scene.theme")
     stage = Stage(
         id="links",
@@ -28,10 +28,22 @@ def test_each_switch_shares_its_color_with_the_bridges_it_drives(scene_modules):
     switch_rgb, bridge_rgb = theme.switch_link_colors(stage)
 
     assert set(switch_rgb) == {"sw_a", "sw_b"}  # split switches drive no bridge
-    assert switch_rgb["sw_a"] != switch_rgb["sw_b"]
-    assert bridge_rgb["b1"] == switch_rgb["sw_a"]
-    # b2 is driven by both; it takes the first switch by id.
-    assert bridge_rgb["b2"] == switch_rgb["sw_a"]
+    assert bridge_rgb["b1"] != bridge_rgb["b2"]
+    assert switch_rgb["sw_b"] == bridge_rgb["b2"]
+    # sw_a drives b1 and b2; it shows its first bridge's color.
+    assert switch_rgb["sw_a"] == bridge_rgb["b1"]
+
+
+def test_all_switches_of_one_bridge_share_its_color_on_stage_20(scene_modules):
+    theme = importlib.import_module("bloxorz.gui.scene.theme")
+    stage = load_stage(STAGE_20)
+    switch_rgb, bridge_rgb = theme.switch_link_colors(stage)
+
+    # sw_2, sw_3 and sw_4 all close bridgeA: one color for all four.
+    assert {switch_rgb[sid] for sid in ("sw_2", "sw_3", "sw_4")} == {bridge_rgb["bridgeA"]}
+    assert switch_rgb["sw_1"] == bridge_rgb["bridgeC"]
+    assert switch_rgb["sw_5"] == bridge_rgb["bridgeB"]
+    assert len(set(bridge_rgb.values())) == 3
 
 
 def test_board_paints_bridges_and_switch_buttons_with_the_linked_color(scene_modules):
