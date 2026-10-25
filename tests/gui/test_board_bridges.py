@@ -67,7 +67,11 @@ def board_module(monkeypatch):
     ursina.destroy = lambda entity: None
     ursina.curve = SimpleNamespace(linear="linear", in_expo="in_expo")
     ursina.scene = object()
+    shaders = ModuleType("ursina.shaders")
+    shaders.lit_with_shadows_shader = "lit_with_shadows_shader"
+    ursina.shaders = shaders
     monkeypatch.setitem(sys.modules, "ursina", ursina)
+    monkeypatch.setitem(sys.modules, "ursina.shaders", shaders)
 
     return importlib.import_module("bloxorz.gui.scene.board")
 

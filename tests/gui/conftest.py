@@ -41,7 +41,11 @@ def scene_modules(monkeypatch):
     ursina.destroy = lambda _entity: None
     ursina.scene = object()
     ursina.camera = SimpleNamespace(position=None, look_at=lambda _target: None)
+    shaders = ModuleType("ursina.shaders")
+    shaders.lit_with_shadows_shader = "lit_with_shadows_shader"
+    ursina.shaders = shaders
     monkeypatch.setitem(sys.modules, "ursina", ursina)
+    monkeypatch.setitem(sys.modules, "ursina.shaders", shaders)
 
     board_module = importlib.import_module("bloxorz.gui.scene.board")
     view_module = importlib.import_module("bloxorz.gui.scene.view")

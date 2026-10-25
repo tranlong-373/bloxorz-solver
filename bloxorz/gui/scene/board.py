@@ -3,7 +3,15 @@
 from ursina import Entity, color, destroy
 
 from .animate import BRIDGE_DURATION, play_fragile_break
-from .theme import TILE_COLORS, SWITCH_COLORS, cell_to_world
+from .theme import (
+    SCENE_SHADER,
+    SWITCH_COLORS,
+    SWITCH_SYMBOL_SHADE,
+    TILE_COLORS,
+    cell_to_world,
+    rgb,
+    switch_link_colors,
+)
 
 
 class Board:
@@ -12,6 +20,7 @@ class Board:
         self.tiles = {}
         self.bridge_tiles = {}
         self.switch_entities = {}
+        self._switch_rgb = {}
         self._open_bridges = set()
         self.fragile_tiles = {}
         self._fragile_defaults = {}
@@ -40,6 +49,7 @@ class Board:
     def build(self, stage):
         """Build floor, bridge overlays, and distinct switch models."""
         self.clear()
+        self._switch_rgb, bridge_rgb = switch_link_colors(stage)
 
         for r, row in enumerate(stage.grid):
             for c, symbol in enumerate(row):
@@ -52,8 +62,14 @@ class Board:
 
                 position = cell_to_world(r, c)
                 scale = (0.95, 0.2, 0.95)
-                fallback = TILE_COLORS["B"] if bridge_id else TILE_COLORS["#"]
-                tile_color = TILE_COLORS.get(symbol, fallback)
+                if bridge_id is not None:
+                    tile_color = (
+                        rgb(bridge_rgb[bridge_id])
+                        if bridge_id in bridge_rgb
+                        else TILE_COLORS["B"]
+                    )
+                else:
+                    tile_color = TILE_COLORS.get(symbol, TILE_COLORS["#"])
 
                 if symbol == "G":
                     position = (c, -0.16, -r)
@@ -61,13 +77,19 @@ class Board:
 
                 switches = stage.switch_at.get(cell, ())
                 if switches:
-                    tile_color = SWITCH_COLORS.get(switches[0].kind, tile_color)
+                    first = switches[0]
+                    tile_color = (
+                        rgb(self._switch_rgb[first.id])
+                        if first.id in self._switch_rgb
+                        else SWITCH_COLORS.get(first.kind, tile_color)
+                    )
 
                 tile = Entity(
                     model="cube",
                     position=position,
                     scale=scale,
                     color=tile_color,
+                    shader=SCENE_SHADER,
                 )
                 self.tiles[cell] = tile
 
@@ -87,7 +109,10 @@ class Board:
     def _make_switch_entities(self, switch):
         r, c = switch.pos
         y = 0.045
-        tint = SWITCH_COLORS.get(switch.kind, color.white)
+        if switch.id in self._switch_rgb:
+            tint = rgb(self._switch_rgb[switch.id], SWITCH_SYMBOL_SHADE)
+        else:
+            tint = SWITCH_COLORS.get(switch.kind, color.white)
 
         if switch.kind == "soft":
             shapes = [((0, y, 0), (0.6, 0.08, 0.6), 0)]
@@ -117,6 +142,7 @@ class Board:
                 scale=scale,
                 rotation_y=angle,
                 color=tint,
+                shader=SCENE_SHADER,
             )
             entities.append((entity, scale))
         return entities

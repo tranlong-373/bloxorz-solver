@@ -29,7 +29,6 @@ from ursina import (
     DirectionalLight,
     Text,
     Ursina,
-    camera,
     window,
 )
 
@@ -583,20 +582,8 @@ def main():
 
     current_state = initial_state
 
+    # SceneView frames the official camera; the demo uses it as is.
     scene_view.load_stage(stage, initial_state)
-    # Camera chỉ dùng cho demo Task 3.2.
-    # Không thay đổi góc camera chính thức trong SceneView.
-    center_x = (stage.cols - 1) / 2
-    center_z = -(stage.rows - 1) / 2
-    size = max(stage.rows, stage.cols, 4)
-
-    camera.position = (
-        center_x,
-        size * 2.8,
-        center_z - size * 2.2,
-    )
-
-    camera.look_at((center_x, 0, center_z))
 
     Text(
         text=(

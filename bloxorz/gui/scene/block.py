@@ -5,6 +5,7 @@ from ursina import Entity, destroy
 from .theme import (
     BLOCK_COLOR,
     CUBE_COLOR,
+    SCENE_SHADER,
     SELECTED_CUBE_COLOR,
     block_transform,
     cube_transform,
@@ -18,11 +19,18 @@ class BlockView:
             color=BLOCK_COLOR,
             position=(0, 1, 0),
             scale=(1, 2, 1),
+            shader=SCENE_SHADER,
         )
         # Created once and only enabled while split; cubes[i] sits on the
         # i-th position of the last placed State (pos, then cube2).
         self.cubes = [
-            Entity(model="cube", color=CUBE_COLOR, scale=(1, 1, 1), enabled=False)
+            Entity(
+                model="cube",
+                color=CUBE_COLOR,
+                scale=(1, 1, 1),
+                shader=SCENE_SHADER,
+                enabled=False,
+            )
             for _ in range(2)
         ]
         self.cube_cells = [None, None]
