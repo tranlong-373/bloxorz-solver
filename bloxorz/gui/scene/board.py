@@ -268,6 +268,19 @@ class Board:
         """Return True while a bridge, switch or fragile animation runs."""
         return self._busy
 
+    def has_floor(self, cell):
+        """True when a visible tile is drawn under cell.
+
+        Closed bridges and broken fragile tiles show no floor. Used only to
+        shape the fall animation; Engine already decided the move failed.
+        """
+        tile = self.tiles.get(cell)
+        return (
+            tile is not None
+            and getattr(tile, "enabled", True)
+            and cell not in self._broken_fragile
+        )
+
     def break_fragile(self, cell, on_done):
         """Animate the specified F tile after the Engine reports a break."""
         if self._busy:

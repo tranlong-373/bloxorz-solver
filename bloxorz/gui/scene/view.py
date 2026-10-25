@@ -1,14 +1,14 @@
 """Render Bloxorz stages and coordinate 3D animations.
 
-Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b, 3.3c.
+Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b, 3.3c, 3.4.
 """
 
 import logging
 
 from ursina import camera, destroy, scene
 
-from bloxorz.engine.rules import ROLL
-from bloxorz.model import Direction, Pose
+from bloxorz.engine.rules import ROLL, footprint
+from bloxorz.model import Direction, Pose, State
 
 from .animate import play_drop, play_fall, play_roll, play_split, play_win
 from .block import BlockView
@@ -194,6 +194,30 @@ class SceneView:
             self._busy = False
             raise
 
+    def _fall_tip(self, before, action):
+        """Floor edge a lying block tips over when only one landing cell is held.
+
+        Returns (pivot_position, rotation_axis, angle) for play_fall, or None
+        when the whole landing is unsupported (a plain roll-and-drop).
+        """
+        if action.cube is not None or before.pose is None:
+            return None
+        new_pose, dr, dc = ROLL[(before.pose, action.direction)]
+        landing = footprint(State(new_pose, (before.pos[0] + dr, before.pos[1] + dc)))
+        held = [cell for cell in landing if self.board.has_floor(cell)]
+        if len(landing) != 2 or len(held) != 1:
+            return None
+
+        (held_r, held_c), = held
+        (open_r, open_c), = [cell for cell in landing if cell not in held]
+        # Same signs as play_roll: +90 about z leans toward +x (higher column),
+        # +90 about x leans toward +z (lower row).
+        if held_r == open_r:
+            edge = ((held_c + open_c) / 2, 0, -held_r)
+            return edge, "rotation_z", 90 if open_c > held_c else -90
+        edge = (held_c, 0, -(held_r + open_r) / 2)
+        return edge, "rotation_x", 90 if open_r < held_r else -90
+
     def show_fall(self, before, action, on_done):
         """Animate the block, or the acting cube, falling after an invalid move."""
 
@@ -219,6 +243,7 @@ class SceneView:
                 self._moving_entity(before, action),
                 action.direction,
                 finish,
+                tip=self._fall_tip(before, action),
             )
         except Exception:
             self._busy = False
