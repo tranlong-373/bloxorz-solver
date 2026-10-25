@@ -16,6 +16,8 @@ Controls:
     L: Test lying safely across F
     B: Test fragile break
     C: Test a switch closing the bridge under the block
+    H: Next fall case (standing off the edge / lying with one cell unsupported,
+       four directions each; 8 presses show all of them)
     Tab: Switch the controlled cube while split (VT4 maps Space in the app)
     T: Run 10 consecutive rolls
     G: Run 10 rolls ending at Goal
@@ -36,7 +38,7 @@ from ursina import (
     application,
 )
 
-from bloxorz.engine.rules import Outcome, footprint, is_goal, step
+from bloxorz.engine.rules import ROLL, Outcome, footprint, is_goal, step
 from bloxorz.loader import load_stage
 from bloxorz.model import Action, Direction, Pose, State
 
@@ -49,6 +51,7 @@ current_state = None
 auto_running = False
 has_fallen = False
 has_won = False
+fall_case_index = 0  # H key: which of FALL_CASES runs next
 selected_pos = None  # demo only: the split cube the arrow keys move
 status_text = None
 
@@ -194,6 +197,94 @@ def reset_demo():
     has_won = False
 
     set_status(f"Demo reset: {current_state.pos}")
+
+
+FALL_CASES = [
+    (kind, direction)
+    for kind in ("edge", "half")
+    for direction in (Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP)
+]
+
+
+def _has_floor(cell, bridges_open):
+    bridge_id = stage.bridge_at.get(cell)
+    if bridge_id is not None:
+        return bridge_id in bridges_open
+    return stage.cell(cell) != "."
+
+
+def _find_fall_case(kind, direction):
+    """Engine-checked start State for one fall case on the loaded stage.
+
+    edge: a standing block rolls fully off the floor.
+    half: a lying block lands with one cell held and one unsupported; a
+    case whose hole is at the board edge (nothing beyond it) is preferred.
+    """
+    bridges = stage.initial_bridges_open()
+    poses = (Pose.STANDING,) if kind == "edge" else (
+        Pose.HORIZONTAL, Pose.VERTICAL, Pose.STANDING
+    )
+    fallback = None
+    for pose in poses:
+        for r in range(stage.rows):
+            for c in range(stage.cols):
+                before = State(pose, (r, c), None, bridges)
+                if not all(_has_floor(cell, bridges) for cell in footprint(before)):
+                    continue
+                result = step(stage, before, Action(direction))
+                if result.reason != "fell":
+                    continue
+                new_pose, dr, dc = ROLL[(pose, direction)]
+                landing = footprint(State(new_pose, (r + dr, c + dc)))
+                held = [cell for cell in landing if _has_floor(cell, bridges)]
+                if kind == "edge":
+                    if not held:
+                        return before, result
+                    continue
+                if len(landing) != 2 or len(held) != 1:
+                    continue
+                (hr, hc), = held
+                (orow, ocol), = [cell for cell in landing if cell not in held]
+                beyond = (2 * orow - hr, 2 * ocol - hc)
+                if not _has_floor(beyond, bridges):
+                    return before, result
+                fallback = fallback or (before, result)
+    return fallback
+
+
+def test_fall_case():
+    """H: show the next fall case; repeat to go through all eight."""
+    global current_state, has_fallen, has_won, fall_case_index
+
+    if scene_view.is_busy() or auto_running:
+        set_status("Cannot start a fall case during animation")
+        return
+
+    kind, direction = FALL_CASES[fall_case_index % len(FALL_CASES)]
+    fall_case_index += 1
+    label = (
+        f"H {(fall_case_index - 1) % len(FALL_CASES) + 1}/{len(FALL_CASES)}: "
+        + ("standing off the edge" if kind == "edge" else "lying, one cell unsupported")
+        + f" {direction.name}"
+    )
+    found = _find_fall_case(kind, direction)
+    if found is None:
+        set_status(f"{label}: no such case on this stage")
+        return
+
+    before, result = found
+    scene_view.board.reset_fragile()
+    has_fallen = has_won = False
+    current_state = before
+    scene_view.show_state(before)
+    set_status(label)
+
+    def finished():
+        global has_fallen
+        has_fallen = True
+        set_status(f"{label} - done. Press H for the next case.")
+
+    scene_view.show_illegal_step(before, Action(direction), result, on_done=finished)
 
 
 def _select_cube(index):
@@ -419,6 +510,11 @@ def input(key):
         test_win()
         return
 
+    # H resets by itself, so it also works right after a fall.
+    if key == "h":
+        test_fall_case()
+        return
+
     if has_won:
         set_status("Win animation completed. Press R to reset.")
         return
@@ -642,7 +738,7 @@ def main():
         text=(
             "Arrows: Move | T: 10 rolls | G: 10 + Goal\n"
             "F: Fall | L: Lie across F | B: Fragile break\n"
-            "C: Bridge closes | Tab: Switch cube\n"
+            "C: Bridge closes | Tab: Switch cube | H: Fall cases\n"
             "W: Preview Win | R: Reset | 1/2/3: Pose"
         ),
         position=(-0.85, 0.45),
