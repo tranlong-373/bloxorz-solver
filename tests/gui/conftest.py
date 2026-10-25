@@ -35,6 +35,7 @@ def scene_modules(monkeypatch):
     ursina.Entity = _ImportOnlyEntity
     ursina.color = SimpleNamespace(
         rgb32=lambda red, green, blue: (red, green, blue),
+        rgba32=lambda red, green, blue, alpha: (red, green, blue, alpha),
         white=(255, 255, 255),
     )
     ursina.curve = SimpleNamespace(linear="linear", in_expo="in_expo")
@@ -43,7 +44,10 @@ def scene_modules(monkeypatch):
     ursina.camera = SimpleNamespace(position=None, look_at=lambda _target: None)
     shaders = ModuleType("ursina.shaders")
     shaders.lit_with_shadows_shader = "lit_with_shadows_shader"
+    shaders.unlit_shader = "unlit_shader"
     ursina.shaders = shaders
+    ursina.Texture = lambda image: image
+    ursina.Sky = _ImportOnlyEntity
     monkeypatch.setitem(sys.modules, "ursina", ursina)
     monkeypatch.setitem(sys.modules, "ursina.shaders", shaders)
 

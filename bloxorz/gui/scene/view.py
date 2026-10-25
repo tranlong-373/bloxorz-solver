@@ -6,7 +6,7 @@ Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b, 3.3c, 3.4.
 import logging
 import math
 
-from ursina import camera, destroy, scene
+from ursina import Sky, camera, destroy, scene
 
 from bloxorz.engine.rules import ROLL, footprint
 from bloxorz.model import Direction, Pose, State
@@ -14,6 +14,7 @@ from bloxorz.model import Direction, Pose, State
 from .animate import play_drop, play_fall, play_roll, play_split, play_win
 from .block import BlockView
 from .board import Board
+from .textures import starfield_texture
 from .theme import CAMERA_AZIMUTH_DEG, CAMERA_ELEVATION_DEG, CAMERA_FRAME
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,8 @@ def _cubes(state):
 
 class SceneView:
     def __init__(self):
+        # Starry space backdrop; the sky dome follows the camera.
+        self.backdrop = Sky(texture=starfield_texture())
         self.board = Board()
         self.block = BlockView()
         self.stage = None

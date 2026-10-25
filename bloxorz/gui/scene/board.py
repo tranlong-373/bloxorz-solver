@@ -1,20 +1,36 @@
-"""Board tiles, bridges, and switch visuals. Owner: VT3 (tasks 3.1, 3.3)."""
+"""Board tiles, bridges, switch buttons and the goal portal. Owner: VT3 (tasks 3.1, 3.3, 3.4)."""
+
+import math
+import time
 
 from ursina import Entity, color, destroy
 
 from .animate import BRIDGE_DURATION, play_fragile_break
+from .textures import portal_ring_texture, stone_texture
 from .theme import (
+    GLOW_SHADER,
+    PORTAL_COLOR,
+    PORTAL_STREAK_COLOR,
+    PORTAL_STREAK_PERIOD,
+    PORTAL_STREAKS,
     SCENE_SHADER,
     SWITCH_COLORS,
     SWITCH_SYMBOL_SHADE,
     TILE_COLORS,
+    TILE_SIZE,
+    TILE_THICKNESS,
     cell_to_world,
     rgb,
     switch_link_colors,
 )
 
+TILE_SCALE = (TILE_SIZE, TILE_THICKNESS, TILE_SIZE)
+
 
 class Board:
+    # Scale of an open bridge tile (and every floor tile).
+    OPEN_SCALE = TILE_SCALE
+
     def __init__(self):
         # (row, col) -> floor or bridge Entity
         self.tiles = {}
@@ -27,6 +43,8 @@ class Board:
         self._broken_fragile = set()
         self._busy = False
         self._generation = 0
+        # Goal portal ring, light streaks and the entity that moves them.
+        self.decorations = []
 
     def clear(self):
         """Remove the previous stage and invalidate its animation callbacks."""
@@ -37,7 +55,10 @@ class Board:
         for entities in self.switch_entities.values():
             for entity, _ in entities:
                 destroy(entity)
+        for entity in self.decorations:
+            destroy(entity)
 
+        self.decorations.clear()
         self.tiles.clear()
         self.bridge_tiles.clear()
         self.switch_entities.clear()
@@ -61,7 +82,8 @@ class Board:
                     continue
 
                 position = cell_to_world(r, c)
-                scale = (0.95, 0.2, 0.95)
+                scale = TILE_SCALE
+                texture = stone_texture()
                 if bridge_id is not None:
                     tile_color = (
                         rgb(bridge_rgb[bridge_id])
@@ -72,23 +94,19 @@ class Board:
                     tile_color = TILE_COLORS.get(symbol, TILE_COLORS["#"])
 
                 if symbol == "G":
-                    position = (c, -0.16, -r)
-                    scale = (0.95, 0.06, 0.95)
+                    # A dark, sunken hole; the portal ring sits on its rim.
+                    position = (c, -TILE_THICKNESS + 0.02, -r)
+                    scale = (TILE_SIZE, 0.04, TILE_SIZE)
+                    texture = None
+                    self.decorations.extend(self._make_goal_portal(r, c))
 
-                switches = stage.switch_at.get(cell, ())
-                if switches:
-                    first = switches[0]
-                    tile_color = (
-                        rgb(self._switch_rgb[first.id])
-                        if first.id in self._switch_rgb
-                        else SWITCH_COLORS.get(first.kind, tile_color)
-                    )
-
+                # Switch tiles stay plain stone; the button carries the color.
                 tile = Entity(
                     model="cube",
                     position=position,
                     scale=scale,
                     color=tile_color,
+                    texture=texture,
                     shader=SCENE_SHADER,
                 )
                 self.tiles[cell] = tile
@@ -106,6 +124,43 @@ class Board:
         self._open_bridges = set(stage.initial_bridges_open())
         self._sync_bridge_visibility()
 
+    def _make_goal_portal(self, r, c):
+        """Glowing ring on the goal rim plus light streaks rising from it."""
+        ring = Entity(
+            model="quad",
+            texture=portal_ring_texture(),
+            color=PORTAL_COLOR,
+            position=(c, 0.02, -r),
+            rotation_x=90,
+            scale=1.45,
+            double_sided=True,
+            shader=GLOW_SHADER,
+        )
+        streaks = []
+        for index in range(PORTAL_STREAKS):
+            angle = 2 * math.pi * index / PORTAL_STREAKS
+            streaks.append(
+                Entity(
+                    model="quad",
+                    color=PORTAL_STREAK_COLOR,
+                    position=(c + 0.4 * math.cos(angle), 0.1, -r + 0.4 * math.sin(angle)),
+                    scale=(0.04, 0.35),
+                    billboard=True,
+                    shader=GLOW_SHADER,
+                )
+            )
+
+        def update():
+            # Each streak rises and fades in a loop, staggered around the ring.
+            now = time.perf_counter() / PORTAL_STREAK_PERIOD
+            for index, streak in enumerate(streaks):
+                progress = (now + index / PORTAL_STREAKS) % 1
+                streak.y = 0.1 + 0.9 * progress
+                streak.scale_y = 0.35 * (1 - progress) + 0.05
+
+        mover = Entity(update=update)
+        return [ring, *streaks, mover]
+
     def _make_switch_entities(self, switch):
         r, c = switch.pos
         y = 0.045
@@ -115,7 +170,8 @@ class Board:
             tint = SWITCH_COLORS.get(switch.kind, color.white)
 
         if switch.kind == "soft":
-            shapes = [((0, y, 0), (0.6, 0.08, 0.6), 0)]
+            # A round push button.
+            shapes = [((0, y + 0.02, 0), (0.56, 0.18, 0.56), 0)]
             model = "sphere"
         elif switch.kind == "heavy":
             # Two flat bars form an X when viewed from above.
@@ -152,7 +208,7 @@ class Board:
             opened = bridge_id in self._open_bridges
             for tile in tiles:
                 tile.enabled = opened
-                tile.scale = (0.95, 0.2, 0.95) if opened else (0, 0, 0)
+                tile.scale = TILE_SCALE if opened else (0, 0, 0)
 
     def show_state(self, state):
         """Set bridge visibility from the Engine's authoritative State."""
@@ -221,7 +277,7 @@ class Board:
             for tile in tiles:
                 tile.enabled = True
                 tile.scale = (0, 0, 0)
-            target = (0.95, 0.2, 0.95)
+            target = TILE_SCALE
         else:
             self._open_bridges.discard(bridge_id)
             target = (0, 0, 0)

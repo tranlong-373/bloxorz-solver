@@ -62,6 +62,7 @@ def board_module(monkeypatch):
     ursina.Entity = FakeEntity
     ursina.color = SimpleNamespace(
         rgb32=lambda red, green, blue: (red, green, blue),
+        rgba32=lambda red, green, blue, alpha: (red, green, blue, alpha),
         white=(255, 255, 255),
     )
     ursina.destroy = lambda entity: None
@@ -69,7 +70,9 @@ def board_module(monkeypatch):
     ursina.scene = object()
     shaders = ModuleType("ursina.shaders")
     shaders.lit_with_shadows_shader = "lit_with_shadows_shader"
+    shaders.unlit_shader = "unlit_shader"
     ursina.shaders = shaders
+    ursina.Texture = lambda image: image
     monkeypatch.setitem(sys.modules, "ursina", ursina)
     monkeypatch.setitem(sys.modules, "ursina.shaders", shaders)
 
@@ -94,7 +97,7 @@ def test_bridge_visibility_tracks_engine_state(board_module):
         State(Pose.STANDING, stage.start, bridges_open=frozenset({"b1"}))
     )
     assert bridge_tile.enabled
-    assert bridge_tile.scale == (0.95, 0.2, 0.95)
+    assert bridge_tile.scale == board_module.TILE_SCALE
 
     board.show_state(State(Pose.STANDING, stage.start))
     assert not bridge_tile.enabled
@@ -129,7 +132,7 @@ def test_switch_then_bridge_events_finish_once_and_release_busy(board_module):
         tile.animations[-1] for tile in board.bridge_tiles["b1"]
     ]
     assert len(bridge_animations) == 2
-    assert bridge_animations[0].target == (0.95, 0.2, 0.95)
+    assert bridge_animations[0].target == board_module.TILE_SCALE
     assert bridge_animations[0].duration == board_module.BRIDGE_DURATION
 
     # A repeated callback from one tile must not finish the other tile's work.

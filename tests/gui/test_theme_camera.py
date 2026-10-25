@@ -34,7 +34,7 @@ def test_each_switch_shares_its_color_with_the_bridges_it_drives(scene_modules):
     assert bridge_rgb["b2"] == switch_rgb["sw_a"]
 
 
-def test_board_paints_bridges_and_switch_tiles_with_the_linked_color(scene_modules):
+def test_board_paints_bridges_and_switch_buttons_with_the_linked_color(scene_modules):
     theme = importlib.import_module("bloxorz.gui.scene.theme")
     stage = load_stage(STAGE_20)
     board = scene_modules.board.Board()
@@ -45,7 +45,25 @@ def test_board_paints_bridges_and_switch_tiles_with_the_linked_color(scene_modul
         assert all(tile.color == theme.rgb(bridge_rgb[bridge_id]) for tile in tiles)
     for switch in stage.switches:
         if switch.id in switch_rgb:
-            assert board.tiles[switch.pos].color == theme.rgb(switch_rgb[switch.id])
+            # The tile stays plain stone; the button on it carries the color.
+            assert board.tiles[switch.pos].color == theme.TILE_COLORS["#"]
+            buttons = [entity for entity, _ in board.switch_entities[switch.id]]
+            linked = theme.rgb(switch_rgb[switch.id], theme.SWITCH_SYMBOL_SHADE)
+            assert buttons and all(button.color == linked for button in buttons)
+
+
+def test_goal_gets_a_portal_that_is_removed_with_the_board(scene_modules):
+    stage = load_stage(STAGE_20)
+    board = scene_modules.board.Board()
+    board.build(stage)
+
+    assert board.decorations  # ring, streaks and their mover
+
+    destroyed = []
+    scene_modules.board.destroy = destroyed.append
+    board.clear()
+    assert board.decorations == []
+    assert len(destroyed) >= 1
 
 
 def test_camera_looks_from_the_front_left_and_backs_off_for_big_stages(scene_modules):
