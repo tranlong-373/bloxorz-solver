@@ -1,11 +1,13 @@
 """Standalone demonstration for Bloxorz scene animations.
 
-Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b, 3.3c.
+Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b, 3.3c, 3.4.
 
 Run:
     python -m bloxorz.gui.scene.demo stages/fixtures/basic_01.json
     python -m bloxorz.gui.scene.demo stages/original/stage_20.json  (C key)
     python -m bloxorz.gui.scene.demo stages/bench/g4_01.json  (split/merge)
+    python -m bloxorz.gui.scene.demo stages/bench/g1_04.json --fps
+        (task 3.4: rolls by itself for 10 s, prints the average FPS and GPU, quits)
 
 Controls:
     Arrow keys: Move the block
@@ -22,13 +24,16 @@ Controls:
 """
 
 import sys
+import time
 from collections import deque
 
 from ursina import (
     AmbientLight,
     DirectionalLight,
+    Entity,
     Text,
     Ursina,
+    application,
 )
 
 from bloxorz.engine.rules import Outcome, footprint, is_goal, step
@@ -550,18 +555,66 @@ def input(key):
         set_status(f"Displaying pose: {poses[key].name}")
 
 
+FPS_TEST_SECONDS = 10
+FPS_TEST_WARMUP_SECONDS = 2
+
+
+def start_fps_test(app):
+    """--fps: keep rolling the block, then print the average frame rate."""
+    started = time.perf_counter()
+    stats = {"frames": 0, "moves": 0, "measure_from": None}
+    directions = (Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP)
+
+    def roll():
+        global current_state
+        for direction in directions[stats["moves"] % 4:] + directions[: stats["moves"] % 4]:
+            result = step(stage, current_state, Action(direction))
+            if result.outcome is Outcome.MOVED and result.state.pose is not None:
+                scene_view.animate_step(current_state, Action(direction), result, lambda: None)
+                current_state = result.state
+                stats["moves"] += 1
+                return
+
+    def update():
+        now = time.perf_counter()
+        if not scene_view.is_busy():
+            roll()
+        if stats["measure_from"] is None:
+            if now - started >= FPS_TEST_WARMUP_SECONDS:
+                stats["measure_from"] = now
+            return
+        stats["frames"] += 1
+        elapsed = now - stats["measure_from"]
+        if elapsed >= FPS_TEST_SECONDS:
+            gsg = app.win.getGsg()
+            size = app.win.getProperties()
+            report = (
+                f"FPS test {stage.id} ({stage.rows}x{stage.cols}): "
+                f"{stats['frames'] / elapsed:.0f} FPS average over {elapsed:.0f} s, "
+                f"{stats['moves']} rolls | GPU: {gsg.getDriverRenderer()} | "
+                f"window {size.getXSize()}x{size.getYSize()}"
+            )
+            print(report, flush=True)
+            application.quit()
+
+    set_status(f"FPS test: rolling for {FPS_TEST_SECONDS} s...")
+    Entity(update=update)
+
+
 def main():
     global stage, scene_view, current_state, status_text
 
-    if len(sys.argv) != 2:
+    args = [arg for arg in sys.argv[1:] if arg != "--fps"]
+    fps_test = "--fps" in sys.argv[1:]
+    if len(args) != 1:
         print(
             "Usage: python -m bloxorz.gui.scene.demo "
-            "stages/fixtures/basic_01.json"
+            "stages/fixtures/basic_01.json [--fps]"
         )
         return
 
     # Load an actual stage using VT4's loader.
-    stage = load_stage(sys.argv[1])
+    stage = load_stage(args[0])
 
     # The standalone demo owns the Ursina application.
     # Pass the title at creation; setting window.title later did not reach
@@ -605,6 +658,8 @@ def main():
 
     print("Loaded stage:", stage.id)
     print("Press 1, 2 or 3 to change block pose.")
+    if fps_test:
+        start_fps_test(app)
     app.run()
 
 
