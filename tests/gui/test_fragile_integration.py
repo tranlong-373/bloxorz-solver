@@ -144,7 +144,7 @@ def test_show_illegal_step_dispatches_on_engine_reason(monkeypatch, scene_module
     monkeypatch.setattr(
         scene,
         "_show_landing_fall",
-        lambda before, action, board_effect, on_done: calls.append(
+        lambda before, action, board_effect, on_done, drops=None: calls.append(
             ("landing", action.direction)
         ),
     )

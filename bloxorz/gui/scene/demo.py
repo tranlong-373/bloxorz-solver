@@ -1,10 +1,11 @@
 """Standalone demonstration for Bloxorz scene animations.
 
-Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b.
+Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b, 3.3c.
 
 Run:
     python -m bloxorz.gui.scene.demo stages/fixtures/basic_01.json
     python -m bloxorz.gui.scene.demo stages/original/stage_20.json  (C key)
+    python -m bloxorz.gui.scene.demo stages/bench/g4_01.json  (split/merge)
 
 Controls:
     Arrow keys: Move the block
@@ -13,6 +14,7 @@ Controls:
     L: Test lying safely across F
     B: Test fragile break
     C: Test a switch closing the bridge under the block
+    Tab: Switch the controlled cube while split (VT4 maps Space in the app)
     T: Run 10 consecutive rolls
     G: Run 10 rolls ending at Goal
     W: Preview the win animation
@@ -44,6 +46,7 @@ current_state = None
 auto_running = False
 has_fallen = False
 has_won = False
+selected_pos = None  # demo only: the split cube the arrow keys move
 status_text = None
 
 
@@ -169,7 +172,7 @@ def test_ten_rolls(to_goal=False):
 
 def reset_demo():
     """Restore the initial stage State after a fall or win."""
-    global current_state, has_fallen, has_won
+    global current_state, has_fallen, has_won, selected_pos
 
     if scene_view.is_busy() or auto_running:
         set_status("Cannot reset while an animation is running")
@@ -181,12 +184,31 @@ def reset_demo():
         bridges_open=stage.initial_bridges_open(),
     )
 
+    selected_pos = None
     scene_view.board.reset_fragile()
     scene_view.show_state(current_state)
     has_fallen = False
     has_won = False
 
     set_status(f"Demo reset: {current_state.pos}")
+
+
+def _select_cube(index):
+    """Mark split cube index (0/1) of current_state as controlled."""
+    global selected_pos
+    selected_pos = (current_state.pos, current_state.cube2)[index]
+    scene_view.set_selected(index)
+
+
+def _selected_index(state):
+    cubes = (state.pos, state.cube2)
+    return cubes.index(selected_pos) if selected_pos in cubes else 0
+
+
+def _describe(state):
+    if state.pose is None:
+        return f"split cubes at {state.pos} and {state.cube2}"
+    return f"{state.pose.name} at {state.pos}"
 
 
 def test_win():
@@ -436,13 +458,22 @@ def input(key):
         "space": Direction.RIGHT,
     }
 
+    # Tab: switch the controlled cube while split.
+    if key == "tab":
+        if current_state.pose is None and not scene_view.is_busy():
+            index = 1 - _selected_index(current_state)
+            _select_cube(index)
+            set_status(f"Tab: controlling cube at {selected_pos}")
+        return
+
     if key in directions:
         if scene_view.is_busy():
             set_status("Animation is still running")
             return
 
         before = current_state
-        action = Action(directions[key])
+        cube = _selected_index(before) if before.pose is None else None
+        action = Action(directions[key], cube=cube)
         result = step(stage, before, action)
 
         # Engine decides why the move fell; Scene only presents that result.
@@ -463,14 +494,24 @@ def input(key):
             return
 
         def finished():
-            global current_state, has_won
+            global current_state, has_won, selected_pos
 
             # Update State only after the roll animation finishes.
             current_state = result.state
 
-            set_status(
-                f"Roll finished: {current_state.pose.name} at {current_state.pos}"
-            )
+            if current_state.pose is None:
+                if before.pose is not None:
+                    selected_pos = current_state.pos
+                elif selected_pos == (before.pos, before.cube2)[cube]:
+                    # The controlled cube moved; follow it to its new cell.
+                    stationary = (before.pos, before.cube2)[1 - cube]
+                    cells = (current_state.pos, current_state.cube2)
+                    selected_pos = cells[1] if cells[0] == stationary else cells[0]
+                _select_cube(_selected_index(current_state))
+            else:
+                selected_pos = None
+
+            set_status(f"Roll finished: {_describe(current_state)}")
 
             # The Engine provides a separate goal check.
             if is_goal(stage, current_state):
@@ -561,6 +602,7 @@ def main():
         text=(
             "Arrows: Move | T: 10 rolls | G: 10 + Goal\n"
             "F: Fall | L: Lie across F | B: Fragile break\n"
+            "C: Bridge closes | Tab: Switch cube\n"
             "W: Preview Win | R: Reset | 1/2/3: Pose"
         ),
         position=(-0.85, 0.45),
@@ -569,7 +611,7 @@ def main():
 
     status_text = Text(
         text="Ready | T/G require basic_01.json",
-        position=(-0.85, 0.38),
+        position=(-0.85, 0.355),
         scale=0.7,
         color=(1, 0.85, 0.35, 1),
     )
