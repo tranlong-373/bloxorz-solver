@@ -27,6 +27,7 @@ class GameController:
         self.replaying = False
         self.paused = False
         self.delay = 0.25
+        self.speed = 1
         self._replay_actions: tuple[Action, ...] = ()
         self._replay_index = 0
         self._replay_token = 0
@@ -122,6 +123,13 @@ class GameController:
 
     def set_delay(self, delay: float) -> None:
         self.delay = max(0.01, float(delay))
+
+    def set_speed(self, multiplier: int) -> None:
+        delays = {1: 0.25, 2: 0.125, 4: 0.0625}
+        if multiplier not in delays:
+            raise ValueError("Replay speed must be 1, 2, or 4")
+        self.speed = multiplier
+        self.delay = delays[multiplier]
 
     def _queue_replay(self, session: int, delay: float) -> None:
         self._replay_token += 1
