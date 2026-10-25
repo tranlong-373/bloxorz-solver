@@ -1,4 +1,4 @@
-"""Breadth-first search. Owner: VT1 (task 1.4)."""
+"""Tìm kiếm theo chiều rộng (BFS). VT1, task 1.4."""
 from collections import deque
 
 from bloxorz.engine import initial_state, is_goal, successors
@@ -7,6 +7,7 @@ from bloxorz.search.base import reconstruct, register
 
 @register("bfs")
 def bfs(stage, ctx):
+    """Duyệt theo lớp để tìm lời giải ít bước nhất, hoặc None nếu không có."""
     start = initial_state(stage)
     if is_goal(stage, start):
         return ()

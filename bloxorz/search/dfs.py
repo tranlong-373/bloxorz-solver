@@ -1,10 +1,11 @@
-"""Depth-first search (graph search with visited set). Owner: VT1 (task 1.5)."""
+"""Tìm kiếm theo chiều sâu (DFS) có đánh dấu trạng thái. VT1, task 1.5."""
 from bloxorz.engine import initial_state, is_goal, successors
 from bloxorz.search.base import reconstruct, register
 
 
 @register("dfs")
 def dfs(stage, ctx):
+    """Duyệt sâu theo thứ tự hướng cố định và trả lời giải nếu tìm thấy."""
     start = initial_state(stage)
     stack = [(start, None, None)]  # giữ cha và hành động để dựng lại lời giải
     parents = {}  # đánh dấu khi lấy khỏi stack, không phải khi thêm vào

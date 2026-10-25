@@ -1,4 +1,4 @@
-"""best_first (shared by UCS and A*) and uniform-cost search. Owner: VT5 (task 5.1)."""
+"""Vòng tìm kiếm dùng chung cho UCS và A*. VT5, task 5.1."""
 import heapq
 import itertools
 
@@ -8,6 +8,7 @@ from bloxorz.search.cost import move_cost
 
 
 def best_first(stage, ctx, h):
+    """Ưu tiên trạng thái theo g + h; dùng chung cho UCS và A*."""
     start = initial_state(stage)
     g = {start: 0.0}  # chi phí tốt nhất đã biết để tới mỗi trạng thái
     parents = {start: None}
@@ -35,5 +36,5 @@ def best_first(stage, ctx, h):
 
 @register("ucs")
 def ucs(stage, ctx):
-    # h = 0 nên hàng đợi ưu tiên đúng chi phí đã đi.
+    """Tìm lời giải có tổng chi phí nhỏ nhất bằng cách đặt h = 0."""
     return best_first(stage, ctx, lambda s: 0)

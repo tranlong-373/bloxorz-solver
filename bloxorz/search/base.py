@@ -1,4 +1,4 @@
-"""Solver framework: Limits, SearchResult, ALGORITHMS registry, SearchContext, run(). Owner: VT1 (task 1.3)."""
+"""Khung chạy thuật toán: giới hạn, kết quả, bảng đăng ký và đo tìm kiếm. VT1 (1.3)."""
 import threading
 import time
 import tracemalloc
@@ -36,7 +36,9 @@ _CHECK_EVERY = 1
 
 
 def register(name: str):
+    """Tạo decorator đăng ký thuật toán theo tên cho run()."""
     def deco(fn):
+        """Lưu hàm giải vào bảng đăng ký rồi trả lại chính hàm đó."""
         ALGORITHMS[name] = fn
         return fn
 
@@ -45,21 +47,22 @@ def register(name: str):
 
 class SearchAborted(Exception):
     def __init__(self, status: str):  # "timeout" | "cancelled"
+        """Ghi lý do dừng sớm: hết giờ hoặc bị hủy."""
         super().__init__(status)
         self.status = status
 
 
 class SearchContext:
     def __init__(self, limits: Limits):
+        """Tạo bộ đếm và thời điểm hết hạn cho một lượt tìm kiếm."""
         self.limits = limits
         self.expanded = 0
         self.deadline = time.perf_counter() + limits.timeout_s
 
     def check_limits(self) -> None:
-        """Cooperative check; does not count an expanded node.
+        """Kiểm tra hủy trước hết giờ, không tăng số nút mở rộng.
 
-        Cancellation takes precedence when both limits are reached. This cannot
-        interrupt a solver that neither ticks nor returns control to run().
+        Chỉ dừng tại nơi gọi hàm này; không ngắt ngang một bước solver đang chạy.
         """
         if self.limits.cancel is not None and self.limits.cancel.is_set():
             raise SearchAborted("cancelled")
@@ -67,14 +70,14 @@ class SearchContext:
             raise SearchAborted("timeout")
 
     def tick(self) -> None:
-        """Check before each expansion; aborted checks do not increment expanded."""
+        """Kiểm tra giới hạn rồi tăng số nút chuẩn bị mở rộng."""
         if self.expanded % _CHECK_EVERY == 0:
             self.check_limits()
         self.expanded += 1
 
 
 def reconstruct(parents: dict, goal: State) -> tuple[Action, ...]:
-    """parents[state] = (parent_state, action); parents[start] = None."""
+    """Lần theo cha từ đích về đầu rồi đảo lại chuỗi hành động."""
     actions = []
     entry = parents[goal]
     while entry is not None:
@@ -85,6 +88,7 @@ def reconstruct(parents: dict, goal: State) -> tuple[Action, ...]:
 
 
 def _path_cost(stage: Stage, actions: tuple[Action, ...]) -> float:
+    """Phát lại lời giải theo luật chơi để tính tổng chi phí thực tế."""
     from .cost import move_cost
     from ..engine import initial_state, step
     s = initial_state(stage)
@@ -100,21 +104,19 @@ def _path_cost(stage: Stage, actions: tuple[Action, ...]) -> float:
 
 def run(algorithm: str, stage: Stage, limits: Limits = Limits(),
         measure_memory: bool = False) -> SearchResult:
-    """Run a solver cooperatively; validate solved paths outside search timing.
+    """Chạy solver, đo thời gian và kiểm tra lời giải ngoài khoảng đo.
 
-    Memory is paired only for deterministic results (same actions, cost and
-    expanded count). A different valid solution is a pairing mismatch, not an
-    invalid solution: keep the first result, omit peak, and explain in message.
-    The traced search reuses Stage data caches warmed by the untraced search;
-    validation/cost replay is outside tracing. No cold-cache/RSS claim is made.
+    Chỉ giữ số đo bộ nhớ khi hai lượt cho cùng trạng thái, hành động, chi phí
+    và số nút mở rộng. Nếu lời giải vẫn hợp lệ nhưng khác, giữ kết quả đầu và
+    để trống số đo bộ nhớ. Lượt đo bộ nhớ dùng lại cache của Stage đã làm nóng;
+    phát lại và xác minh nằm ngoài vùng theo dõi cấp phát, không đo RSS.
     """
     fn = ALGORITHMS.get(algorithm)
     if fn is None:
         return SearchResult(algorithm, stage.id, "error",
                             message=f"unknown algorithm: {algorithm}")
 
-    # Timing includes limit checks and the solver, including heuristic building
-    # done inside it. Loading, replay/cost and memory validation are excluded.
+    # Thời gian gồm solver và bước dựng heuristic, không gồm tải màn hay phát lại.
     ctx = SearchContext(limits)
     actions: tuple[Action, ...] | None = None
     message = ""
@@ -122,11 +124,11 @@ def run(algorithm: str, stage: Stage, limits: Limits = Limits(),
     try:
         ctx.check_limits()
         actions = fn(stage, ctx)
-        ctx.check_limits()  # also covers solvers returning without any tick
+        ctx.check_limits()  # bắt cả solver trả về mà chưa gọi tick
         status = "solved" if actions is not None else "unsolvable"
     except SearchAborted as e:
         status = e.status
-    except Exception as e:  # solver bug must not crash the caller
+    except Exception as e:  # lỗi solver được trả về thay vì làm hỏng chương trình gọi
         status = "error"
         message = f"{type(e).__name__}: {e}"
     time_s = time.perf_counter() - t0
@@ -146,9 +148,8 @@ def run(algorithm: str, stage: Stage, limits: Limits = Limits(),
 
     peak = None
     if measure_memory and status in ("solved", "unsolvable"):
-        # Keep the same Stage: its bridge_at/switch_at caches may already be warm.
-        # This measures additional traced allocations, not total process memory
-        # or cold Stage setup. Heuristic tables are rebuilt in each solver call.
+        # Dùng lại Stage đã làm nóng cache cầu/công tắc; chỉ đo cấp phát Python,
+        # không đo RAM toàn tiến trình. Heuristic được dựng lại ở mỗi lượt gọi.
         try:
             try:
                 tracemalloc.start()
@@ -160,9 +161,8 @@ def run(algorithm: str, stage: Stage, limits: Limits = Limits(),
             finally:
                 tracemalloc.stop()
 
-            # Validation and cost replay are OUTSIDE the traced allocation scope.
-            # verify imports only the engine; neither imports search/base, so this
-            # local dependency reuses the existing replay without an import cycle.
+            # Phát lại, tính chi phí và xác minh đều nằm ngoài vùng đo bộ nhớ.
+            # Import tại đây để tránh vòng import giữa search và verify.
             memory_status = "solved" if memory_actions is not None else "unsolvable"
             memory_cost = 0.0
             if memory_status == "solved":
