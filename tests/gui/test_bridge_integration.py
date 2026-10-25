@@ -9,7 +9,6 @@ from bloxorz.model import Action, Direction
 from bloxorz.stage import Bridge, Stage, Switch
 
 FIXTURES = Path(__file__).resolve().parents[2] / "stages" / "fixtures"
-OPEN_SCALE = (0.95, 0.2, 0.95)
 
 
 class _Vec(tuple):
@@ -123,7 +122,7 @@ def test_soft_switch_event_opens_whole_bridge_then_finishes_once(scene_env):
 
     assert done == ["done"]
     assert not scene.is_busy()
-    assert all(tile.enabled and tile.scale == OPEN_SCALE for tile in tiles)
+    assert all(tile.enabled and tile.scale == scene.board.OPEN_SCALE for tile in tiles)
     # Switch pulse first, then both bridge tiles together.
     assert [entry[0] for entry in timeline] == ["roll", "anim", "anim", "anim"]
 
@@ -146,7 +145,7 @@ def test_heavy_permanent_ignores_lying_and_never_fakes_a_bridge_change(scene_env
         drain()
         bridge_animations = [
             entry for entry in timeline[before_count:]
-            if entry[0] == "anim" and entry[1] in (OPEN_SCALE, (0, 0, 0))
+            if entry[0] == "anim" and entry[1] in (scene.board.OPEN_SCALE, (0, 0, 0))
         ]
         if "bridge:b1:open" not in result.events:
             assert bridge_animations == []

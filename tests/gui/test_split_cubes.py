@@ -72,7 +72,7 @@ def env(monkeypatch, scene_modules):
     monkeypatch.setattr(scene_modules.board, "Entity", Entity)
 
     def recorder(name):
-        def play(entity, *args):
+        def play(entity, *args, **_kwargs):
             timeline.append((name, entity))
             args[-1]()
 

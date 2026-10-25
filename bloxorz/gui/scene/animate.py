@@ -74,15 +74,22 @@ def play_roll(block, direction: Direction, on_finished):
     roll_animation.append(finish)
 
 
-# Fall animation: roll over the edge, then drop.
+# Fall animation: roll over the edge, optionally tip off a half-held
+# landing, then drop.
 FALL_DURATION = 0.8
 FALL_ROLL_DURATION = 0.30
 FALL_DROP_DURATION = FALL_DURATION - FALL_ROLL_DURATION
+FALL_TIP_DURATION = 0.25
 FALL_TARGET_Y = -10.0
 
 
-def play_fall(block, direction: Direction, on_finished):
-    """Roll toward an unsupported area, then fall."""
+def play_fall(block, direction: Direction, on_finished, tip=None):
+    """Roll toward an unsupported area, then fall.
+
+    tip is (pivot_position, rotation_axis, angle): when a lying block lands
+    with only one cell on the floor, it turns about that floor edge into
+    the void before dropping, so it never cuts through the floor tile.
+    """
 
     x, z = block.world_x, block.world_z
     half_x = block.world_scale_x / 2
@@ -116,8 +123,34 @@ def play_fall(block, direction: Direction, on_finished):
 
     def finish():
         block.y = FALL_TARGET_Y
-        print("FALL: drop completed at", block.world_position)
         on_finished()
+
+    def drop():
+        drop_animation = block.animate_y(
+            FALL_TARGET_Y,
+            duration=FALL_DROP_DURATION,
+            curve=curve.in_expo,
+        )
+        drop_animation.append(finish)
+
+    def start_tip():
+        tip_position, tip_axis, tip_angle = tip
+        tip_pivot = Entity(position=tip_position)
+        block.world_parent = tip_pivot
+
+        def tipped():
+            setattr(tip_pivot, tip_axis, tip_angle)
+            block.world_parent = scene
+            destroy(tip_pivot)
+            drop()
+
+        tip_animation = tip_pivot.animate(
+            tip_axis,
+            tip_angle,
+            duration=FALL_TIP_DURATION,
+            curve=curve.in_quad,
+        )
+        tip_animation.append(tipped)
 
     def start_drop():
         # Ensure the roll ends at precisely 90 degrees.
@@ -127,14 +160,10 @@ def play_fall(block, direction: Direction, on_finished):
         block.world_parent = scene
         destroy(pivot)
 
-        print("FALL: roll completed at", block.world_position)
-
-        drop_animation = block.animate_y(
-            FALL_TARGET_Y,
-            duration=FALL_DROP_DURATION,
-            curve=curve.in_expo,
-        )
-        drop_animation.append(finish)
+        if tip is not None:
+            start_tip()
+        else:
+            drop()
 
     roll_animation = pivot.animate(
         rotation_axis,

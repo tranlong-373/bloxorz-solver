@@ -20,6 +20,22 @@ ROOT = Path(__file__).resolve().parents[2]
 SOFT_TOGGLE_STAGE = ROOT / "stages" / "fixtures" / "soft_toggle_01.json"
 
 
+def fake_textures_module():
+    """Stand-in for bloxorz.gui.scene.textures: each texture is its name."""
+    textures = ModuleType("bloxorz.gui.scene.textures")
+    textures.STONE_VARIANTS = 4
+    for name in (
+        "stone_texture",
+        "fragile_texture",
+        "bridge_texture",
+        "starfield_texture",
+        "portal_ring_texture",
+        "glow_disk_texture",
+    ):
+        setattr(textures, name, lambda *_args, _name=name: _name)
+    return textures
+
+
 class FakeAnimation:
     def __init__(self, entity, target, duration):
         self.entity = entity
@@ -54,6 +70,7 @@ def board_module(monkeypatch):
     for name in (
         "bloxorz.gui.scene.board",
         "bloxorz.gui.scene.animate",
+        "bloxorz.gui.scene.meshes",
         "bloxorz.gui.scene.theme",
     ):
         monkeypatch.delitem(sys.modules, name, raising=False)
@@ -62,12 +79,23 @@ def board_module(monkeypatch):
     ursina.Entity = FakeEntity
     ursina.color = SimpleNamespace(
         rgb32=lambda red, green, blue: (red, green, blue),
+        rgba32=lambda red, green, blue, alpha: (red, green, blue, alpha),
         white=(255, 255, 255),
     )
     ursina.destroy = lambda entity: None
     ursina.curve = SimpleNamespace(linear="linear", in_expo="in_expo")
     ursina.scene = object()
+    shaders = ModuleType("ursina.shaders")
+    shaders.lit_with_shadows_shader = "lit_with_shadows_shader"
+    shaders.unlit_shader = "unlit_shader"
+    ursina.shaders = shaders
+    ursina.Texture = lambda image: image
+    ursina.Mesh = lambda **kwargs: "mesh"
+    ursina.Cylinder = lambda **kwargs: "cylinder"
     monkeypatch.setitem(sys.modules, "ursina", ursina)
+    monkeypatch.setitem(sys.modules, "ursina.shaders", shaders)
+    # CI has no Pillow (it comes with Ursina): stand in for the textures.
+    monkeypatch.setitem(sys.modules, "bloxorz.gui.scene.textures", fake_textures_module())
 
     return importlib.import_module("bloxorz.gui.scene.board")
 
@@ -90,7 +118,7 @@ def test_bridge_visibility_tracks_engine_state(board_module):
         State(Pose.STANDING, stage.start, bridges_open=frozenset({"b1"}))
     )
     assert bridge_tile.enabled
-    assert bridge_tile.scale == (0.95, 0.2, 0.95)
+    assert bridge_tile.scale == board_module.TILE_SCALE
 
     board.show_state(State(Pose.STANDING, stage.start))
     assert not bridge_tile.enabled
@@ -125,7 +153,7 @@ def test_switch_then_bridge_events_finish_once_and_release_busy(board_module):
         tile.animations[-1] for tile in board.bridge_tiles["b1"]
     ]
     assert len(bridge_animations) == 2
-    assert bridge_animations[0].target == (0.95, 0.2, 0.95)
+    assert bridge_animations[0].target == board_module.TILE_SCALE
     assert bridge_animations[0].duration == board_module.BRIDGE_DURATION
 
     # A repeated callback from one tile must not finish the other tile's work.

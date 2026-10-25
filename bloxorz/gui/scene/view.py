@@ -1,18 +1,21 @@
 """Render Bloxorz stages and coordinate 3D animations.
 
-Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b, 3.3c.
+Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b, 3.3c, 3.4.
 """
 
 import logging
+import math
 
-from ursina import camera, destroy, scene
+from ursina import Sky, camera, destroy, scene
 
-from bloxorz.engine.rules import ROLL
-from bloxorz.model import Direction, Pose
+from bloxorz.engine.rules import ROLL, footprint
+from bloxorz.model import Direction, Pose, State
 
 from .animate import play_drop, play_fall, play_roll, play_split, play_win
 from .block import BlockView
 from .board import Board
+from .textures import starfield_texture
+from .theme import CAMERA_AZIMUTH_DEG, CAMERA_ELEVATION_DEG, CAMERA_FRAME
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,8 @@ def _cubes(state):
 
 class SceneView:
     def __init__(self):
+        # Starry space backdrop; the sky dome follows the camera.
+        self.backdrop = Sky(texture=starfield_texture())
         self.board = Board()
         self.block = BlockView()
         self.stage = None
@@ -72,18 +77,109 @@ class SceneView:
 
         self.board.build(stage)
         self.show_state(state)
+        self._frame_camera(stage)
 
-        center_x = (stage.cols - 1) / 2
-        center_z = -(stage.rows - 1) / 2
+    def _frame_camera(self, stage):
+        """Look from the front-left, center the board and pull back until it fits."""
+        center = ((stage.cols - 1) / 2, 0, -(stage.rows - 1) / 2)
+        elevation = math.radians(CAMERA_ELEVATION_DEG)
+        azimuth = math.radians(CAMERA_AZIMUTH_DEG)
+        direction = (
+            -math.cos(elevation) * math.sin(azimuth),
+            math.sin(elevation),
+            -math.cos(elevation) * math.cos(azimuth),
+        )
+        # Ground-plane axes for sliding the view: across and along the sightline.
+        across = (math.cos(azimuth), 0, -math.sin(azimuth))
+        along = (-math.sin(azimuth), 0, -math.cos(azimuth))
         size = max(stage.rows, stage.cols, 4)
 
-        camera.position = (
-            center_x + size * 2.2,
-            size * 2.8,
-            center_z + size * 2.2,
-        )
+        def place(distance, pan):
+            target = tuple(
+                c + pan[0] * a + pan[1] * b for c, a, b in zip(center, across, along)
+            )
+            camera.position = tuple(t + d * distance for t, d in zip(target, direction))
+            camera.look_at(target)
 
-        camera.look_at((center_x, 0, center_z))
+        lens = getattr(camera, "lens", None)
+        if lens is None:
+            # No real lens (headless tests): distance from max(rows, cols).
+            place(size * 2.5 + 4, (0.0, 0.0))
+            return
+
+        from panda3d.core import LVecBase4f, Point3
+
+        # Board corners, including the top of a standing block.
+        corners = [
+            Point3(x, y, z)
+            for x in (-0.5, stage.cols - 0.5)
+            for z in (0.5, -(stage.rows - 0.5))
+            for y in (0, 2)
+        ]
+        projection = lens.getProjectionMat()
+
+        def extents(distance, pan):
+            """(left, right, bottom, top) of the board on screen, or None.
+
+            Uses the projection matrix rather than lens.project(), which
+            reports failure for any point outside the view; a point off
+            screen still has screen coordinates. Only a corner behind the
+            camera makes the extents meaningless.
+            """
+            place(distance, pan)
+            xs, ys = [], []
+            for corner in corners:
+                point = camera.getRelativePoint(scene, corner)
+                clip = projection.xform(LVecBase4f(point[0], point[1], point[2], 1))
+                if clip[3] <= 1e-6:
+                    return None
+                xs.append(clip[0] / clip[3])
+                ys.append(clip[1] / clip[3])
+            return min(xs), max(xs), min(ys), max(ys)
+
+        def fit_distance(pan):
+            near, far = 1.0, 10.0 * size
+            for _ in range(30):
+                middle = (near + far) / 2
+                box = extents(middle, pan)
+                if box is not None and (
+                    box[0] >= CAMERA_FRAME["left"]
+                    and box[1] <= CAMERA_FRAME["right"]
+                    and box[2] >= CAMERA_FRAME["bottom"]
+                    and box[3] <= CAMERA_FRAME["top"]
+                ):
+                    far = middle
+                else:
+                    near = middle
+            return far
+
+        def middle_of(box):
+            return (box[0] + box[1]) / 2, (box[2] + box[3]) / 2
+
+        goal = (
+            (CAMERA_FRAME["left"] + CAMERA_FRAME["right"]) / 2,
+            (CAMERA_FRAME["bottom"] + CAMERA_FRAME["top"]) / 2,
+        )
+        pan = (0.0, 0.0)
+        for _ in range(3):
+            distance = fit_distance(pan)
+            here_box = extents(distance, pan)
+            # Screen shift per unit slide, measured with a small test slide.
+            slid_x = extents(distance, (pan[0] + 0.5, pan[1]))
+            slid_y = extents(distance, (pan[0], pan[1] + 0.5))
+            if here_box is None or slid_x is None or slid_y is None:
+                break  # cannot measure here: keep the last safe framing
+            here = middle_of(here_box)
+            step_x = middle_of(slid_x)[0] - here[0]
+            step_y = middle_of(slid_y)[1] - here[1]
+            if abs(step_x) < 1e-4 or abs(step_y) < 1e-4:
+                break
+            pan = (
+                pan[0] + 0.5 * (goal[0] - here[0]) / step_x,
+                pan[1] + 0.5 * (goal[1] - here[1]) / step_y,
+            )
+        # fit_distance always ends on a distance that fits (or its far limit).
+        place(fit_distance(pan), pan)
 
     def show_state(self, state):
         """Place the block or cubes and render bridges from the State."""
@@ -194,6 +290,30 @@ class SceneView:
             self._busy = False
             raise
 
+    def _fall_tip(self, before, action):
+        """Floor edge a lying block tips over when only one landing cell is held.
+
+        Returns (pivot_position, rotation_axis, angle) for play_fall, or None
+        when the whole landing is unsupported (a plain roll-and-drop).
+        """
+        if action.cube is not None or before.pose is None:
+            return None
+        new_pose, dr, dc = ROLL[(before.pose, action.direction)]
+        landing = footprint(State(new_pose, (before.pos[0] + dr, before.pos[1] + dc)))
+        held = [cell for cell in landing if self.board.has_floor(cell)]
+        if len(landing) != 2 or len(held) != 1:
+            return None
+
+        (held_r, held_c), = held
+        (open_r, open_c), = [cell for cell in landing if cell not in held]
+        # Same signs as play_roll: +90 about z leans toward +x (higher column),
+        # +90 about x leans toward +z (lower row).
+        if held_r == open_r:
+            edge = ((held_c + open_c) / 2, 0, -held_r)
+            return edge, "rotation_z", 90 if open_c > held_c else -90
+        edge = (held_c, 0, -(held_r + open_r) / 2)
+        return edge, "rotation_x", 90 if open_r < held_r else -90
+
     def show_fall(self, before, action, on_done):
         """Animate the block, or the acting cube, falling after an invalid move."""
 
@@ -219,6 +339,7 @@ class SceneView:
                 self._moving_entity(before, action),
                 action.direction,
                 finish,
+                tip=self._fall_tip(before, action),
             )
         except Exception:
             self._busy = False
