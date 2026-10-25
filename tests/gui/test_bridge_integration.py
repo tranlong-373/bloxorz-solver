@@ -3,13 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from bloxorz.engine import Outcome, StepResult, initial_state, step
+from bloxorz.engine import Outcome, initial_state, step
 from bloxorz.loader import load_stage
-from bloxorz.model import Action, Direction, Pose, State
+from bloxorz.model import Action, Direction
 from bloxorz.stage import Bridge, Stage, Switch
 
 FIXTURES = Path(__file__).resolve().parents[2] / "stages" / "fixtures"
-OPEN_SCALE = (0.95, 0.2, 0.95)
 
 
 class _Vec(tuple):
@@ -123,7 +122,7 @@ def test_soft_switch_event_opens_whole_bridge_then_finishes_once(scene_env):
 
     assert done == ["done"]
     assert not scene.is_busy()
-    assert all(tile.enabled and tile.scale == OPEN_SCALE for tile in tiles)
+    assert all(tile.enabled and tile.scale == scene.board.OPEN_SCALE for tile in tiles)
     # Switch pulse first, then both bridge tiles together.
     assert [entry[0] for entry in timeline] == ["roll", "anim", "anim", "anim"]
 
@@ -146,7 +145,7 @@ def test_heavy_permanent_ignores_lying_and_never_fakes_a_bridge_change(scene_env
         drain()
         bridge_animations = [
             entry for entry in timeline[before_count:]
-            if entry[0] == "anim" and entry[1] in (OPEN_SCALE, (0, 0, 0))
+            if entry[0] == "anim" and entry[1] in (scene.board.OPEN_SCALE, (0, 0, 0))
         ]
         if "bridge:b1:open" not in result.events:
             assert bridge_animations == []
@@ -210,21 +209,6 @@ def test_bridge_closed_rolls_then_plays_events_then_drops(scene_env):
     # roll -> switch pulse -> bridge closes -> block drops.
     assert steps == ["roll", "anim", "anim", "drop"]
     assert timeline[2][1] == (0, 0, 0)
-
-
-def test_bridge_closed_for_split_cubes_is_left_to_task_3_3c(scene_env):
-    make_scene, *_ = scene_env
-    stage = _bridge_closing_stage()
-    scene = make_scene(stage, initial_state(stage))
-    split = State(None, (1, 1), (1, 5), frozenset({"b1"}))
-
-    with pytest.raises(NotImplementedError, match="3.3c"):
-        scene.show_illegal_step(
-            split,
-            Action(Direction.RIGHT, cube=0),
-            StepResult(Outcome.ILLEGAL, None, "bridge_closed", ("switch:sw1",)),
-            lambda: None,
-        )
 
 
 @pytest.mark.parametrize("move", ["animate_step", "bridge_closed"])

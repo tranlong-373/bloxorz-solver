@@ -1,10 +1,13 @@
 """Standalone demonstration for Bloxorz scene animations.
 
-Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b.
+Owner: VT3 | Tasks: 3.1, 3.2, 3.3a, 3.3b, 3.3c, 3.4.
 
 Run:
     python -m bloxorz.gui.scene.demo stages/fixtures/basic_01.json
     python -m bloxorz.gui.scene.demo stages/original/stage_20.json  (C key)
+    python -m bloxorz.gui.scene.demo stages/bench/g4_01.json  (split/merge)
+    python -m bloxorz.gui.scene.demo stages/bench/g1_04.json --fps
+        (task 3.4: rolls by itself for 10 s, prints the average FPS and GPU, quits)
 
 Controls:
     Arrow keys: Move the block
@@ -13,6 +16,9 @@ Controls:
     L: Test lying safely across F
     B: Test fragile break
     C: Test a switch closing the bridge under the block
+    H: Next fall case (standing off the edge / lying with one cell unsupported,
+       four directions each; 8 presses show all of them)
+    Tab: Switch the controlled cube while split (VT4 maps Space in the app)
     T: Run 10 consecutive rolls
     G: Run 10 rolls ending at Goal
     W: Preview the win animation
@@ -20,18 +26,19 @@ Controls:
 """
 
 import sys
+import time
 from collections import deque
 
 from ursina import (
     AmbientLight,
     DirectionalLight,
+    Entity,
     Text,
     Ursina,
-    camera,
-    window,
+    application,
 )
 
-from bloxorz.engine.rules import Outcome, footprint, is_goal, step
+from bloxorz.engine.rules import ROLL, Outcome, footprint, is_goal, step
 from bloxorz.loader import load_stage
 from bloxorz.model import Action, Direction, Pose, State
 
@@ -44,6 +51,8 @@ current_state = None
 auto_running = False
 has_fallen = False
 has_won = False
+fall_case_index = 0  # H key: which of FALL_CASES runs next
+selected_pos = None  # demo only: the split cube the arrow keys move
 status_text = None
 
 
@@ -169,7 +178,7 @@ def test_ten_rolls(to_goal=False):
 
 def reset_demo():
     """Restore the initial stage State after a fall or win."""
-    global current_state, has_fallen, has_won
+    global current_state, has_fallen, has_won, selected_pos
 
     if scene_view.is_busy() or auto_running:
         set_status("Cannot reset while an animation is running")
@@ -181,12 +190,119 @@ def reset_demo():
         bridges_open=stage.initial_bridges_open(),
     )
 
+    selected_pos = None
     scene_view.board.reset_fragile()
     scene_view.show_state(current_state)
     has_fallen = False
     has_won = False
 
     set_status(f"Demo reset: {current_state.pos}")
+
+
+FALL_CASES = [
+    (kind, direction)
+    for kind in ("edge", "half")
+    for direction in (Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP)
+]
+
+
+def _has_floor(cell, bridges_open):
+    bridge_id = stage.bridge_at.get(cell)
+    if bridge_id is not None:
+        return bridge_id in bridges_open
+    return stage.cell(cell) != "."
+
+
+def _find_fall_case(kind, direction):
+    """Engine-checked start State for one fall case on the loaded stage.
+
+    edge: a standing block rolls fully off the floor.
+    half: a lying block lands with one cell held and one unsupported; a
+    case whose hole is at the board edge (nothing beyond it) is preferred.
+    """
+    bridges = stage.initial_bridges_open()
+    poses = (Pose.STANDING,) if kind == "edge" else (
+        Pose.HORIZONTAL, Pose.VERTICAL, Pose.STANDING
+    )
+    fallback = None
+    for pose in poses:
+        for r in range(stage.rows):
+            for c in range(stage.cols):
+                before = State(pose, (r, c), None, bridges)
+                if not all(_has_floor(cell, bridges) for cell in footprint(before)):
+                    continue
+                result = step(stage, before, Action(direction))
+                if result.reason != "fell":
+                    continue
+                new_pose, dr, dc = ROLL[(pose, direction)]
+                landing = footprint(State(new_pose, (r + dr, c + dc)))
+                held = [cell for cell in landing if _has_floor(cell, bridges)]
+                if kind == "edge":
+                    if not held:
+                        return before, result
+                    continue
+                if len(landing) != 2 or len(held) != 1:
+                    continue
+                (hr, hc), = held
+                (orow, ocol), = [cell for cell in landing if cell not in held]
+                beyond = (2 * orow - hr, 2 * ocol - hc)
+                if not _has_floor(beyond, bridges):
+                    return before, result
+                fallback = fallback or (before, result)
+    return fallback
+
+
+def test_fall_case():
+    """H: show the next fall case; repeat to go through all eight."""
+    global current_state, has_fallen, has_won, fall_case_index
+
+    if scene_view.is_busy() or auto_running:
+        set_status("Cannot start a fall case during animation")
+        return
+
+    kind, direction = FALL_CASES[fall_case_index % len(FALL_CASES)]
+    fall_case_index += 1
+    label = (
+        f"H {(fall_case_index - 1) % len(FALL_CASES) + 1}/{len(FALL_CASES)}: "
+        + ("standing off the edge" if kind == "edge" else "lying, one cell unsupported")
+        + f" {direction.name}"
+    )
+    found = _find_fall_case(kind, direction)
+    if found is None:
+        set_status(f"{label}: no such case on this stage")
+        return
+
+    before, result = found
+    scene_view.board.reset_fragile()
+    has_fallen = has_won = False
+    current_state = before
+    scene_view.show_state(before)
+    set_status(label)
+
+    def finished():
+        global has_fallen
+        has_fallen = True
+        set_status(f"{label} - done. Press H for the next case.")
+
+    scene_view.show_illegal_step(before, Action(direction), result, on_done=finished)
+
+
+def _select_cube(index):
+    """Mark split cube index (0/1) of current_state as controlled."""
+    global selected_pos
+    selected_pos = (current_state.pos, current_state.cube2)[index]
+    scene_view.set_selected(index)
+
+
+def _selected_index(state):
+    cubes = (state.pos, state.cube2)
+    return cubes.index(selected_pos) if selected_pos in cubes else 0
+
+
+def _describe(state):
+    if state.pose is None:
+        return f"split cubes at {state.pos} and {state.cube2}"
+    return f"{state.pose.name} at {state.pos}"
 
 
 def test_win():
@@ -394,6 +510,11 @@ def input(key):
         test_win()
         return
 
+    # H resets by itself, so it also works right after a fall.
+    if key == "h":
+        test_fall_case()
+        return
+
     if has_won:
         set_status("Win animation completed. Press R to reset.")
         return
@@ -436,13 +557,22 @@ def input(key):
         "space": Direction.RIGHT,
     }
 
+    # Tab: switch the controlled cube while split.
+    if key == "tab":
+        if current_state.pose is None and not scene_view.is_busy():
+            index = 1 - _selected_index(current_state)
+            _select_cube(index)
+            set_status(f"Tab: controlling cube at {selected_pos}")
+        return
+
     if key in directions:
         if scene_view.is_busy():
             set_status("Animation is still running")
             return
 
         before = current_state
-        action = Action(directions[key])
+        cube = _selected_index(before) if before.pose is None else None
+        action = Action(directions[key], cube=cube)
         result = step(stage, before, action)
 
         # Engine decides why the move fell; Scene only presents that result.
@@ -463,14 +593,24 @@ def input(key):
             return
 
         def finished():
-            global current_state, has_won
+            global current_state, has_won, selected_pos
 
             # Update State only after the roll animation finishes.
             current_state = result.state
 
-            set_status(
-                f"Roll finished: {current_state.pose.name} at {current_state.pos}"
-            )
+            if current_state.pose is None:
+                if before.pose is not None:
+                    selected_pos = current_state.pos
+                elif selected_pos == (before.pos, before.cube2)[cube]:
+                    # The controlled cube moved; follow it to its new cell.
+                    stationary = (before.pos, before.cube2)[1 - cube]
+                    cells = (current_state.pos, current_state.cube2)
+                    selected_pos = cells[1] if cells[0] == stationary else cells[0]
+                _select_cube(_selected_index(current_state))
+            else:
+                selected_pos = None
+
+            set_status(f"Roll finished: {_describe(current_state)}")
 
             # The Engine provides a separate goal check.
             if is_goal(stage, current_state):
@@ -511,26 +651,75 @@ def input(key):
         set_status(f"Displaying pose: {poses[key].name}")
 
 
+FPS_TEST_SECONDS = 10
+FPS_TEST_WARMUP_SECONDS = 2
+
+
+def start_fps_test(app):
+    """--fps: keep rolling the block, then print the average frame rate."""
+    started = time.perf_counter()
+    stats = {"frames": 0, "moves": 0, "measure_from": None}
+    directions = (Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP)
+
+    def roll():
+        global current_state
+        for direction in directions[stats["moves"] % 4:] + directions[: stats["moves"] % 4]:
+            result = step(stage, current_state, Action(direction))
+            if result.outcome is Outcome.MOVED and result.state.pose is not None:
+                scene_view.animate_step(current_state, Action(direction), result, lambda: None)
+                current_state = result.state
+                stats["moves"] += 1
+                return
+
+    def update():
+        now = time.perf_counter()
+        if not scene_view.is_busy():
+            roll()
+        if stats["measure_from"] is None:
+            if now - started >= FPS_TEST_WARMUP_SECONDS:
+                stats["measure_from"] = now
+            return
+        stats["frames"] += 1
+        elapsed = now - stats["measure_from"]
+        if elapsed >= FPS_TEST_SECONDS:
+            gsg = app.win.getGsg()
+            size = app.win.getProperties()
+            report = (
+                f"FPS test {stage.id} ({stage.rows}x{stage.cols}): "
+                f"{stats['frames'] / elapsed:.0f} FPS average over {elapsed:.0f} s, "
+                f"{stats['moves']} rolls | GPU: {gsg.getDriverRenderer()} | "
+                f"window {size.getXSize()}x{size.getYSize()}"
+            )
+            print(report, flush=True)
+            application.quit()
+
+    set_status(f"FPS test: rolling for {FPS_TEST_SECONDS} s...")
+    Entity(update=update)
+
+
 def main():
     global stage, scene_view, current_state, status_text
 
-    if len(sys.argv) != 2:
+    args = [arg for arg in sys.argv[1:] if arg != "--fps"]
+    fps_test = "--fps" in sys.argv[1:]
+    if len(args) != 1:
         print(
             "Usage: python -m bloxorz.gui.scene.demo "
-            "stages/fixtures/basic_01.json"
+            "stages/fixtures/basic_01.json [--fps]"
         )
         return
 
     # Load an actual stage using VT4's loader.
-    stage = load_stage(sys.argv[1])
+    stage = load_stage(args[0])
 
     # The standalone demo owns the Ursina application.
-    app = Ursina()
+    # Pass the title at creation; setting window.title later did not reach
+    # the X11 window name, so the window showed up as "ursina".
+    app = Ursina(title=f"Bloxorz Scene Demo - {stage.id}")
     AmbientLight(color=(0.65, 0.65, 0.65, 1))
 
     sun = DirectionalLight()
     sun.look_at((1, -2, -1))
-    window.title = f"Bloxorz Scene Demo - {stage.id}"
 
     scene_view = SceneView()
 
@@ -542,25 +731,14 @@ def main():
 
     current_state = initial_state
 
+    # SceneView frames the official camera; the demo uses it as is.
     scene_view.load_stage(stage, initial_state)
-    # Camera chỉ dùng cho demo Task 3.2.
-    # Không thay đổi góc camera chính thức trong SceneView.
-    center_x = (stage.cols - 1) / 2
-    center_z = -(stage.rows - 1) / 2
-    size = max(stage.rows, stage.cols, 4)
-
-    camera.position = (
-        center_x,
-        size * 2.8,
-        center_z - size * 2.2,
-    )
-
-    camera.look_at((center_x, 0, center_z))
 
     Text(
         text=(
             "Arrows: Move | T: 10 rolls | G: 10 + Goal\n"
             "F: Fall | L: Lie across F | B: Fragile break\n"
+            "C: Bridge closes | Tab: Switch cube | H: Fall cases\n"
             "W: Preview Win | R: Reset | 1/2/3: Pose"
         ),
         position=(-0.85, 0.45),
@@ -569,13 +747,15 @@ def main():
 
     status_text = Text(
         text="Ready | T/G require basic_01.json",
-        position=(-0.85, 0.38),
+        position=(-0.85, 0.355),
         scale=0.7,
         color=(1, 0.85, 0.35, 1),
     )
 
     print("Loaded stage:", stage.id)
     print("Press 1, 2 or 3 to change block pose.")
+    if fps_test:
+        start_fps_test(app)
     app.run()
 
 

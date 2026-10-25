@@ -80,7 +80,22 @@ def test_detail_never_writes_zero_for_a_failure():
     assert d[("g1_02", "ucs")]["length"] is None and d[("g1_02", "ucs")]["cost"] is None
     assert d[("g1_02", "ucs")]["expanded"] == 99  # real count of the search, kept
     assert d[("g2_01", "astar")]["status"] == "timeout"
-    assert "| g1_02 | G1 | UCS | unsolvable | – | – | 99 |" in plots.detail_md(sample_rows())
+    assert "| g1_02 | G1 | UCS | NOSOL | – | – | 99 |" in plots.detail_md(sample_rows())
+
+
+def test_detail_md_uses_report_status_codes():
+    md = plots.detail_md(sample_rows())
+    assert "| g1_01 | G1 | BFS | OK |" in md
+    assert "| g2_01 | G2 | A\\* relaxed | TLE |" in md
+    assert "unsolvable" not in md and "timeout" not in md
+    weird = [row("g1_01", "G1", "bfs", status="error", length="", cost="")]
+    assert "| g1_01 | G1 | BFS | error |" in plots.detail_md(weird)
+
+
+def test_detail_csv_keeps_raw_status(tmp_path):
+    plots.make_tables(sample_rows(), tmp_path)
+    text = (tmp_path / "detail.csv").read_text(encoding="utf-8")
+    assert "unsolvable" in text and "NOSOL" not in text
 
 
 def test_detail_rows_sorted_by_group_then_stage():
@@ -111,7 +126,7 @@ def test_make_tables_writes_files_and_drops_stage_30(tmp_path, capsys):
     text = (tmp_path / "original.md").read_text(encoding="utf-8")
     assert "33 màn" in text and "dùng 2 màn" in text
     assert "| stage_30 |" not in text
-    assert "| stage_23 | G4 | BFS | unsolvable | – | – |" in text  # used stage that fails is kept
+    assert "| stage_23 | G4 | BFS | NOSOL | – | – |" in text  # used stage that fails is kept
     assert "Giải được" in text and "| BFS | G4 | 0/1 |" in text
     assert "stage_30" in capsys.readouterr().out
 
