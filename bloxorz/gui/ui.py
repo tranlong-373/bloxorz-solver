@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Any
 
 from bloxorz.loader import list_stages
+from bloxorz.search import ALGORITHMS
 from bloxorz.stage import Stage
+from bloxorz.gui.solver_runner import SolverRunner
 
 try:
     from ursina import (
@@ -56,6 +58,21 @@ def format_stage_title(stage_id: str, max_len: int = 12) -> str:
     return title
 
 
+def format_solver_result(result: Any, cancelled: bool = False) -> str:
+    """Format solver metrics, leaving solution-only values blank when unavailable."""
+    status = "cancelled" if cancelled else result.status
+    solved = result.status == "solved" and not cancelled
+    moves = str(result.length) if solved else "—"
+    cost = f"{result.cost:g}" if solved else "—"
+    peak = "—" if result.peak_mem_bytes is None else f"{result.peak_mem_bytes / 1024:.1f} KiB"
+    return (
+        f"{status} | moves {moves} | cost {cost}\n"
+        f"expanded {result.expanded} | time {result.time_s * 1000:.1f} ms\n"
+        f"peak memory {peak}"
+        + (f"\n{result.message}" if result.message else "")
+    )
+
+
 class UI:
     """Manages 2D HUD labels, action buttons, and a categorized level menu."""
 
@@ -66,12 +83,17 @@ class UI:
         self.current_page = 0
         self.page_size = 25
         self.grid_buttons: list[Any] = []
+        self.runner = SolverRunner()
+        self._result_handled = True
+        self._cancel_requested = False
+        self.selected_algorithm: str | None = None
 
         # Top-Left HUD Info Text
         self.info_text = Text(
             text="Màn: -- · Bước: 0",
             position=(-0.84, 0.45),
             scale=1.25,
+            origin=(-0.5, 0),
             color=color.hex("#f8f9fa") if color else None,
             parent=camera.ui if camera else None,
         )
@@ -81,6 +103,7 @@ class UI:
             text="",
             position=(-0.84, 0.38),
             scale=1.25,
+            origin=(-0.5, 0),
             color=color.hex("#2ecc71") if color else None,
             parent=camera.ui if camera else None,
         )
@@ -90,11 +113,11 @@ class UI:
             text="Restart (R)",
             color=color.hex("#2980b9") if color else None,
             highlight_color=color.hex("#3498db") if color else None,
-            scale=(0.17, 0.054),
+            scale=(0.19, 0.054),
             radius=0.18,
             position=(0.72, 0.445),
             parent=camera.ui if camera else None,
-            on_click=self.controller.restart,
+            on_click=self.restart,
         )
 
         self.btn_new_game = Button(
@@ -108,8 +131,203 @@ class UI:
             on_click=self.toggle_menu,
         )
 
+        self.btn_solver_panel = Button(
+            text="Solver",
+            color=color.hex("#2980b9") if color else None,
+            highlight_color=color.hex("#3498db") if color else None,
+            scale=(0.19, 0.054),
+            radius=0.18,
+            position=(0.31, 0.445),
+            parent=camera.ui if camera else None,
+            on_click=self.toggle_solver_panel,
+        )
+
+        self._build_solver_panel()
+
         # Level Selection Modal
         self._build_menu()
+        self._layout_aspect = None
+        self._layout_ui()
+
+    def _layout_ui(self) -> None:
+        if window is None:
+            return
+
+        half_width = window.aspect_ratio / 2
+        edge_gap = 0.035
+        button_width = 0.19
+        button_gap = 0.015
+        toolbar_shift = 0.05
+        restart_x = half_width - edge_gap - button_width / 2 - toolbar_shift
+        new_game_x = restart_x - button_width - button_gap
+        solver_x = new_game_x - button_width - button_gap
+
+        self.btn_restart.position = (restart_x, 0.445)
+        self.btn_new_game.position = (new_game_x, 0.445)
+        self.btn_solver_panel.position = (solver_x, 0.445)
+
+        left_x = -half_width + edge_gap
+        self.info_text.x = left_x
+        self.status_text.x = left_x
+
+        panel_x = half_width - edge_gap - 0.42 / 2
+        panel_y = -0.5 + edge_gap + 0.42 / 2
+        self.solver_panel.position = (panel_x, panel_y, 0.1)
+        self.solver_controls.x = panel_x - 0.70
+        self.solver_controls.y = panel_y - 0.19
+        self._layout_aspect = window.aspect_ratio
+
+    def _build_solver_panel(self) -> None:
+        panel_x, panel_y = 0.70, 0.19
+        self.solver_panel = Entity(
+            parent=camera.ui if camera else None,
+            model="quad",
+            scale=(0.42, 0.42),
+            position=(panel_x, panel_y, 0.1),
+            color=color.hex("#121822") if color else None,
+            enabled=False,
+        )
+        self.solver_controls = Entity(
+            parent=camera.ui if camera else None,
+            enabled=False,
+        )
+        Text(
+            text="Solver",
+            parent=self.solver_controls,
+            position=(panel_x - 0.18, panel_y + 0.12),
+            scale=1.1,
+            origin=(-0.5, 0),
+            color=color.hex("#f8f9fa") if color else None,
+        )
+        self.solver_buttons: dict[str, Any] = {}
+        labels = (("bfs", "BFS"), ("dfs", "DFS"), ("ucs", "UCS"), ("astar", "A*"))
+        button_x = (panel_x - 0.15, panel_x - 0.075, panel_x, panel_x + 0.075)
+        for index, (name, label) in enumerate(labels):
+            button = Button(
+                text=label,
+                parent=self.solver_controls,
+                scale=(0.065, 0.04),
+                position=(button_x[index], panel_y + 0.055),
+                on_click=lambda algorithm=name: self.start_solver(algorithm),
+            )
+            button.enabled = name in ALGORITHMS
+            self.solver_buttons[name] = button
+
+        self.cancel_button = Button(
+            text="Cancel",
+            parent=self.solver_controls,
+            scale=(0.34, 0.04),
+            position=(panel_x, panel_y + 0.02),
+            on_click=self.cancel_solver,
+            color=color.hex("#6b7280") if color else None,
+            enabled=False,
+        )
+        self.solver_text = Text(
+            text="Ready",
+            parent=self.solver_controls,
+            position=(panel_x - 0.19, panel_y - 0.045),
+            scale=0.62,
+            origin=(-0.5, 0),
+            color=color.hex("#cbd5e1") if color else None,
+        )
+        self.pause_button = Button(
+            text="Pause",
+            parent=self.solver_controls,
+            scale=(0.075, 0.04),
+            position=(panel_x - 0.09, panel_y - 0.12),
+            on_click=self.controller.pause,
+        )
+        self.step_button = Button(
+            text="Step",
+            parent=self.solver_controls,
+            scale=(0.065, 0.04),
+            position=(panel_x, panel_y - 0.12),
+            on_click=self.controller.step_once,
+        )
+        self.resume_button = Button(
+            text="Resume",
+            parent=self.solver_controls,
+            scale=(0.065, 0.04),
+            position=(panel_x + 0.09, panel_y - 0.12),
+            on_click=self.controller.resume,
+        )
+        self.speed_buttons: dict[int, Any] = {}
+        for index, multiplier in enumerate((1, 2, 4)):
+            speed_button = Button(
+                text=f"{multiplier}×",
+                parent=self.solver_controls,
+                scale=(0.055, 0.04),
+                position=(panel_x - 0.045 + index * 0.065, panel_y - 0.17),
+                on_click=lambda speed=multiplier: self.set_replay_speed(speed),
+            )
+            speed_button.color = color.hex("#7c3aed") if multiplier == 1 else color.hex("#334155")
+            self.speed_buttons[multiplier] = speed_button
+        self.controller.set_speed(1)
+        Text(
+            text="Speed",
+            parent=self.solver_controls,
+            position=(panel_x - 0.18, panel_y - 0.17),
+            scale=0.65,
+            origin=(-0.5, 0),
+            color=color.hex("#cbd5e1") if color else None,
+        )
+
+    def set_replay_speed(self, multiplier: int) -> None:
+        self.controller.set_speed(multiplier)
+        for speed, button in self.speed_buttons.items():
+            button.color = color.hex("#7c3aed") if speed == multiplier else color.hex("#334155")
+
+    def toggle_solver_panel(self) -> None:
+        visible = not self.solver_panel.enabled
+        self.solver_panel.enabled = visible
+        self.solver_controls.enabled = visible
+
+    def close_solver_panel(self) -> None:
+        self.solver_panel.enabled = False
+        self.solver_controls.enabled = False
+
+    def start_solver(self, algorithm: str) -> None:
+        if algorithm not in ALGORITHMS:
+            return
+        self.selected_algorithm = algorithm
+        for name, button in self.solver_buttons.items():
+            button.color = color.hex("#7c3aed") if name == algorithm else color.hex("#334155")
+        stage = self.controller.stage
+        if stage is None or self.runner.running:
+            return
+        self.runner.cancel()
+        self.controller.restart()
+        self.controller.status = "solving"
+        self.runner.start(algorithm, stage)
+        self._cancel_requested = False
+        self._active_algorithm = algorithm
+        self._result_handled = False
+        self.solver_text.text = f"Solving {algorithm.upper()}..."
+        self.cancel_button.text = "Cancel"
+        self.cancel_button.enabled = True
+        self.cancel_button.color = color.hex("#c0392b") if color else None
+        for button in self.solver_buttons.values():
+            button.enabled = False
+
+    def cancel_solver(self) -> None:
+        if self._result_handled or self._cancel_requested:
+            return
+        self.runner.cancel()
+        self._cancel_requested = True
+        self.solver_text.text = "Cancelling..."
+
+    def reset_solver_action(self) -> None:
+        self.cancel_button.text = "Cancel"
+        self.cancel_button.enabled = False
+        self.cancel_button.color = color.hex("#6b7280") if color else None
+        for name, button in self.solver_buttons.items():
+            button.enabled = name in ALGORITHMS
+
+    def restart(self) -> None:
+        self.runner.cancel()
+        self._result_handled = True
+        self.controller.restart()
+        self.reset_solver_action()
 
     def _build_menu(self) -> None:
         """Construct a polished modal with tab bar frame and level grid."""
@@ -311,17 +529,22 @@ class UI:
 
     def select_stage(self, stage: Stage) -> None:
         """Load chosen stage and dismiss the level select menu."""
+        self.runner.cancel()
+        self._result_handled = True
         self.controller.load(stage)
+        self.reset_solver_action()
         self.close_menu()
 
     def toggle_menu(self) -> None:
         """Toggle level select modal visibility."""
         self.menu_panel.enabled = not self.menu_panel.enabled
         if self.menu_panel.enabled:
+            self.close_solver_panel()
             self.switch_tab(self.current_tab)
 
     def open_menu(self) -> None:
         self.menu_panel.enabled = True
+        self.close_solver_panel()
         self.switch_tab(self.current_tab)
 
     def close_menu(self) -> None:
@@ -329,6 +552,32 @@ class UI:
 
     def update(self) -> None:
         """Refresh HUD text every frame."""
+        if window is not None and window.aspect_ratio != self._layout_aspect:
+            self._layout_ui()
+
+        result = self.runner.poll()
+        if result is not None and not self._result_handled:
+            self._result_handled = True
+            self.solver_text.text = format_solver_result(result, self._cancel_requested)
+            if result.status == "solved" and not self._cancel_requested:
+                self.controller.start_replay(result.actions)
+            else:
+                self.controller.status = "playing"
+            self.reset_solver_action()
+        elif not self._result_handled and self.runner.running:
+            if self._cancel_requested:
+                self.solver_text.text = "Cancelling..."
+            else:
+                self.solver_text.text = (
+                    f"Solving {self._active_algorithm.upper()}... "
+                    f"{self.runner.elapsed_s:.1f} s"
+                )
+
+        self.cancel_button.enabled = not self._result_handled
+        self.pause_button.enabled = self.controller.replaying and not self.controller.paused
+        self.step_button.enabled = self.controller.replaying and self.controller.paused
+        self.resume_button.enabled = self.controller.replaying and self.controller.paused
+
         stage_id = self.controller.stage.id if self.controller.stage else "--"
         moves = self.controller.moves
         self.info_text.text = f"Màn: {stage_id} · Bước: {moves}"
