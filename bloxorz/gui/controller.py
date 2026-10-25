@@ -4,8 +4,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from bloxorz.engine import Outcome, initial_state, is_goal, step
-from bloxorz.model import Action, Direction, State
+from bloxorz.engine import Outcome, StepResult, initial_state, is_goal, step
+from bloxorz.model import Action, Direction, Pos, State
 from bloxorz.stage import Stage
 
 
@@ -23,6 +23,8 @@ class GameController:
         self.state: State | None = None
         self.moves: int = 0
         self.status: str = "playing"  # playing, solving, replaying, falling, lost, winning, won
+        # Selected split cube, kept by cell: State reorders cubes so pos < cube2.
+        self.selected_pos: Pos | None = None
         self._session = 0
         self.replaying = False
         self.paused = False
@@ -43,6 +45,7 @@ class GameController:
         self.state = initial_state(stage)
         self.moves = 0
         self.status = "playing"
+        self.selected_pos = None
         self.scene.load_stage(stage, self.state)
 
     def restart(self) -> None:
@@ -50,23 +53,61 @@ class GameController:
         if self.stage is not None:
             self.load(self.stage)
 
+    def _can_play(self) -> bool:
+        return (
+            not self.replaying
+            and not self.scene.is_busy()
+            and self.status == "playing"
+            and self.stage is not None
+            and self.state is not None
+        )
+
+    def _selected_index(self) -> int | None:
+        """Index (0/1) of the selected cube in the current State, None if not split."""
+        if self.state is None or self.state.pose is not None:
+            return None
+        return 0 if self.selected_pos == self.state.pos else 1
+
+    def _ensure_selection(self) -> None:
+        """Default to cube 0 if the selection is missing or stale."""
+        state = self.state
+        if state is None or state.pose is not None:
+            return
+        if self.selected_pos not in (state.pos, state.cube2):
+            self.selected_pos = state.pos
+            self.scene.set_selected(0)
+
+    def switch_cube(self) -> None:
+        """Space key: select the other split cube. Does not count as a move."""
+        if not self._can_play() or self.state.pose is not None:
+            return
+        self._ensure_selection()
+        state = self.state
+        self.selected_pos = state.cube2 if self.selected_pos == state.pos else state.pos
+        self.scene.set_selected(self._selected_index())
+
     def on_direction(self, d: Direction) -> None:
         """Handle directional movement input from the player."""
-        if self.replaying or self.scene.is_busy() or self.status != "playing":
-            return
-        if self.stage is None or self.state is None:
+        if not self._can_play():
             return
 
-        action = Action(direction=d)
+        if self.state.pose is None:
+            self._ensure_selection()
+            action = Action(direction=d, cube=self._selected_index())
+        else:
+            action = Action(direction=d)
         res = step(self.stage, self.state, action)
 
         if res.outcome == Outcome.MOVED:
             before = self.state
             self.moves += 1
             self.state = res.state
+            self._update_selection(before, action, res)
+            # Split, cube move or merge: the highlight must follow.
+            sync = before.pose is None or res.state.pose is None
             session = self._session
             self.scene.animate_step(
-                before, action, res, on_done=lambda: self._after_move(session)
+                before, action, res, on_done=lambda: self._after_move(session, sync)
             )
         elif res.outcome == Outcome.ILLEGAL:
             before = self.state
@@ -76,10 +117,25 @@ class GameController:
                 before, action, on_done=lambda: self._set_if_current(session, "lost")
             )
 
-    def _after_move(self, session: int) -> None:
-        """Check victory condition after a valid move finishes animating."""
+    def _update_selection(self, before: State, action: Action, res: StepResult) -> None:
+        """Move the selection with the cube that just moved."""
+        after = res.state
+        if after is None or after.pose is not None:
+            # Whole block (including a merge): nothing to select.
+            self.selected_pos = None
+        elif "split" in res.events:
+            self.selected_pos = after.pos
+        else:
+            # The moved cube is whichever new cell is not the stationary one.
+            stationary = (before.pos, before.cube2)[1 - action.cube]
+            self.selected_pos = after.cube2 if after.pos == stationary else after.pos
+
+    def _after_move(self, session: int, sync_selection: bool = False) -> None:
+        """Sync the highlight and check victory after a valid move finishes animating."""
         if session != self._session:
             return
+        if sync_selection:
+            self.scene.set_selected(self._selected_index())
         if self.stage is not None and self.state is not None and is_goal(self.stage, self.state):
             self.status = "winning"
             self.scene.show_win(

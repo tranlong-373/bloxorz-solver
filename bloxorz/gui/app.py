@@ -51,6 +51,13 @@ def input(key: str) -> None:
         _controller.on_direction(ARROW_KEYS[key])
         return
 
+    # 'space' selects the other cube while split
+    if key == "space":
+        if _ui.menu_panel.enabled:
+            return
+        _controller.switch_cube()
+        return
+
     # 'r' key triggers restart
     if key == "r":
         _ui.restart()
