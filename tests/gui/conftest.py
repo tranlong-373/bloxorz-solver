@@ -13,6 +13,22 @@ class _ImportOnlyEntity:
         self.__dict__.update(kwargs)
 
 
+def fake_textures_module():
+    """Stand-in for bloxorz.gui.scene.textures: each texture is its name."""
+    textures = ModuleType("bloxorz.gui.scene.textures")
+    textures.STONE_VARIANTS = 4
+    for name in (
+        "stone_texture",
+        "fragile_texture",
+        "bridge_texture",
+        "starfield_texture",
+        "portal_ring_texture",
+        "glow_disk_texture",
+    ):
+        setattr(textures, name, lambda *_args, _name=name: _name)
+    return textures
+
+
 @pytest.fixture
 
 def scene_modules(monkeypatch):
@@ -21,6 +37,7 @@ def scene_modules(monkeypatch):
         "animate",
         "board",
         "block",
+        "meshes",
         "theme",
         "view",
     )
@@ -52,6 +69,8 @@ def scene_modules(monkeypatch):
     ursina.Cylinder = lambda **kwargs: "cylinder"
     monkeypatch.setitem(sys.modules, "ursina", ursina)
     monkeypatch.setitem(sys.modules, "ursina.shaders", shaders)
+    # CI has no Pillow (it comes with Ursina): stand in for the textures.
+    monkeypatch.setitem(sys.modules, "bloxorz.gui.scene.textures", fake_textures_module())
 
     board_module = importlib.import_module("bloxorz.gui.scene.board")
     view_module = importlib.import_module("bloxorz.gui.scene.view")
