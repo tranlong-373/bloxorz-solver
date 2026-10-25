@@ -1,23 +1,27 @@
-"""make_heuristic(stage, name): "relaxed" and "manhattan". Owner: VT5 (task 5.2)."""
+"""Hai hàm ước lượng relaxed và Manhattan cho A*."""
 from collections import deque
 
-from bloxorz.engine.rules import ROLL, footprint  # ROLL, footprint không có trong bloxorz.engine
+from bloxorz.engine.rules import ROLL, footprint
 from bloxorz.model import Direction, Pose, State
 
 INF = float("inf")
 
 
 def manhattan(p, q):
+    """Tính tổng độ lệch hàng và cột giữa hai ô."""
     return abs(p[0] - q[0]) + abs(p[1] - q[1])
 
 
 def split_switch_positions(stage):
+    """Lấy vị trí các công tắc tách khối của màn."""
     return [sw.pos for sw in stage.switches if sw.kind == "split"]
 
 
-# BFS trên "bàn trống" (cả hình chữ nhật là sàn, chỉ giữ biên bàn), trạng thái (tư thế, pos),
-# bắt đầu từ khối đứng ở các ô trong sources. Lăn ngược lại được nên cũng là số nước ít nhất để tới sources
 def relaxed_distances(stage, sources):
+    """BFS từ các ô nguồn trên bàn chỉ giữ biên và tư thế khối.
+
+    Nước lăn có thể đảo chiều nên khoảng cách này cũng là số nước tới nguồn.
+    """
     dist = {}
     queue = deque()
     for p in sources:
@@ -39,21 +43,26 @@ def relaxed_distances(stage, sources):
 
 
 def make_heuristic(stage, name="relaxed"):
+    """Tạo hàm ước lượng relaxed hoặc Manhattan cho một màn."""
     splits = split_switch_positions(stage)
     if name == "relaxed":
         d_goal = relaxed_distances(stage, [stage.goal])
         d_split = relaxed_distances(stage, splits)
 
         def h(s):
+            """Ước lượng từ bảng khoảng cách của khối nguyên và công tắc tách."""
             if s.pose is None:
                 return 2  # còn ít nhất 1 nước ghép + 1 nước đứng dậy
             key = (s.pose, s.pos)
+            # Có thể tới đích trực tiếp hoặc qua công tắc tách khối.
             return min(d_goal.get(key, INF), d_split.get(key, INF) + 2)
         return h
     if name == "manhattan":
         def h(s):
+            """Ước lượng bằng khoảng cách ô, kể cả đường qua công tắc tách."""
             if s.pose is None:
                 return 2
+            # Một lần lăn đi tối đa 2 ô, nên chia đôi khoảng cách Manhattan.
             best = manhattan(s.pos, stage.goal) / 2
             for p in splits:
                 best = min(best, manhattan(s.pos, p) / 2 + 2)
