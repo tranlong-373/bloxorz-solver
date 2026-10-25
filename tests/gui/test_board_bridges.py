@@ -73,6 +73,8 @@ def board_module(monkeypatch):
     shaders.unlit_shader = "unlit_shader"
     ursina.shaders = shaders
     ursina.Texture = lambda image: image
+    ursina.Mesh = lambda **kwargs: "mesh"
+    ursina.Cylinder = lambda **kwargs: "cylinder"
     monkeypatch.setitem(sys.modules, "ursina", ursina)
     monkeypatch.setitem(sys.modules, "ursina.shaders", shaders)
 

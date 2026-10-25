@@ -2,6 +2,8 @@
 
 from ursina import Entity, color, destroy
 
+from .textures import glow_disk_texture
+
 from .theme import (
     BLOCK_COLOR,
     CUBE_COLOR,
@@ -9,6 +11,8 @@ from .theme import (
     EDGE_GLOW_LAYERS,
     EDGE_GLOW_RGB,
     EDGE_THICKNESS,
+    FLOOR_GLOW,
+    FLOOR_GLOW_MARGIN,
     GLOW_SHADER,
     SCENE_SHADER,
     SELECTED_CUBE_COLOR,
@@ -63,6 +67,36 @@ class BlockView:
         ]
         self.cube_glow = [_add_glow(cube) for cube in self.cubes]
         self.cube_cells = [None, None]
+        self._floor_glows = self._add_floor_glows()
+
+    def _add_floor_glows(self):
+        """A soft cyan pool of light on the floor under the block and each cube."""
+        glows = [
+            Entity(
+                model="quad",
+                texture=glow_disk_texture(),
+                color=FLOOR_GLOW,
+                rotation_x=90,
+                y=0.01,
+                double_sided=True,
+                shader=GLOW_SHADER,
+            )
+            for _ in self.entities()
+        ]
+
+        def update():
+            # Follow each body; hide while it is hidden or has fallen away.
+            for body, glow in zip(self.entities(), glows):
+                glow.enabled = body.enabled and body.world_y > -0.2
+                if glow.enabled:
+                    glow.x, glow.z = body.world_x, body.world_z
+                    glow.scale = (
+                        body.world_scale_x + FLOOR_GLOW_MARGIN,
+                        body.world_scale_z + FLOOR_GLOW_MARGIN,
+                    )
+
+        follower = Entity(update=update)
+        return [*glows, follower]
 
     def entities(self):
         """Every entity this view may animate."""
@@ -103,5 +137,5 @@ class BlockView:
                 edges.color = tint
 
     def clear(self):
-        for entity in self.entities():
+        for entity in [*self.entities(), *self._floor_glows]:
             destroy(entity)

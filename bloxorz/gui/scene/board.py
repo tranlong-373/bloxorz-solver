@@ -3,11 +3,20 @@
 import math
 import time
 
-from ursina import Entity, color, destroy
+from ursina import Cylinder, Entity, color, destroy
 
 from .animate import BRIDGE_DURATION, play_fragile_break
-from .textures import portal_ring_texture, stone_texture
+from .meshes import slab_mesh
+from .textures import (
+    STONE_VARIANTS,
+    bridge_texture,
+    fragile_texture,
+    glow_disk_texture,
+    portal_ring_texture,
+    stone_texture,
+)
 from .theme import (
+    BUTTON_BASE_COLOR,
     GLOW_SHADER,
     PORTAL_COLOR,
     PORTAL_STREAK_COLOR,
@@ -83,8 +92,13 @@ class Board:
 
                 position = cell_to_world(r, c)
                 scale = TILE_SCALE
-                texture = stone_texture()
+                model = slab_mesh()
+                # Vary the stone per cell (fixed, so a stage always looks the same).
+                texture = stone_texture((r * 7 + c * 13) % STONE_VARIANTS)
+                if symbol == "F":
+                    texture = fragile_texture()
                 if bridge_id is not None:
+                    texture = bridge_texture()
                     tile_color = (
                         rgb(bridge_rgb[bridge_id])
                         if bridge_id in bridge_rgb
@@ -97,12 +111,13 @@ class Board:
                     # A dark, sunken hole; the portal ring sits on its rim.
                     position = (c, -TILE_THICKNESS + 0.02, -r)
                     scale = (TILE_SIZE, 0.04, TILE_SIZE)
+                    model = "cube"
                     texture = None
                     self.decorations.extend(self._make_goal_portal(r, c))
 
                 # Switch tiles stay plain stone; the button carries the color.
                 tile = Entity(
-                    model="cube",
+                    model=model,
                     position=position,
                     scale=scale,
                     color=tile_color,
@@ -136,15 +151,28 @@ class Board:
             double_sided=True,
             shader=GLOW_SHADER,
         )
+        # Light pooling inside the hole.
+        pool = Entity(
+            model="quad",
+            texture=glow_disk_texture(),
+            color=PORTAL_COLOR,
+            position=(c, -TILE_THICKNESS + 0.05, -r),
+            rotation_x=90,
+            scale=1.1,
+            double_sided=True,
+            shader=GLOW_SHADER,
+        )
         streaks = []
         for index in range(PORTAL_STREAKS):
             angle = 2 * math.pi * index / PORTAL_STREAKS
+            # Alternate two radii so the streaks read as a column of light.
+            radius = 0.4 if index % 2 == 0 else 0.25
             streaks.append(
                 Entity(
                     model="quad",
                     color=PORTAL_STREAK_COLOR,
-                    position=(c + 0.4 * math.cos(angle), 0.1, -r + 0.4 * math.sin(angle)),
-                    scale=(0.04, 0.35),
+                    position=(c + radius * math.cos(angle), 0.1, -r + radius * math.sin(angle)),
+                    scale=(0.035, 0.35),
                     billboard=True,
                     shader=GLOW_SHADER,
                 )
@@ -159,7 +187,7 @@ class Board:
                 streak.scale_y = 0.35 * (1 - progress) + 0.05
 
         mover = Entity(update=update)
-        return [ring, *streaks, mover]
+        return [ring, pool, *streaks, mover]
 
     def _make_switch_entities(self, switch):
         r, c = switch.pos
@@ -170,8 +198,17 @@ class Board:
             tint = SWITCH_COLORS.get(switch.kind, color.white)
 
         if switch.kind == "soft":
-            # A round push button.
-            shapes = [((0, y + 0.02, 0), (0.56, 0.18, 0.56), 0)]
+            # A colored dome on a dark metal base, like a push button.
+            self.decorations.append(
+                Entity(
+                    model=Cylinder(resolution=24, height=1),
+                    position=(c, 0, -r),
+                    scale=(0.6, 0.06, 0.6),
+                    color=BUTTON_BASE_COLOR,
+                    shader=SCENE_SHADER,
+                )
+            )
+            shapes = [((0, y + 0.04, 0), (0.42, 0.16, 0.42), 0)]
             model = "sphere"
         elif switch.kind == "heavy":
             # Two flat bars form an X when viewed from above.

@@ -44,6 +44,7 @@ LINK_PALETTE = [
     (190, 215, 75),
 ]
 # Switch buttons sit on plain stone and carry the full link color.
+BUTTON_BASE_COLOR = color.rgb32(70, 74, 84)
 SWITCH_SYMBOL_SHADE = 1.0
 
 SWITCH_COLORS = {
@@ -65,11 +66,14 @@ EDGE_GLOW_RGB = (90, 240, 255)
 EDGE_DIM_RGB = (40, 105, 125)
 EDGE_GLOW_LAYERS = ((1.0, 255), (1.035, 120), (1.07, 50))
 EDGE_THICKNESS = 3
+# Cyan light the block casts on the floor under it.
+FLOOR_GLOW = color.rgba32(80, 230, 255, 235)
+FLOOR_GLOW_MARGIN = 1.6
 
 # Goal: a dark hole ringed by a cyan portal with rising light streaks.
 PORTAL_COLOR = color.rgb32(60, 230, 255)
 PORTAL_STREAK_COLOR = color.rgba32(140, 250, 255, 230)
-PORTAL_STREAKS = 10
+PORTAL_STREAKS = 18
 PORTAL_STREAK_PERIOD = 1.6
 
 

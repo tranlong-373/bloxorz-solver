@@ -48,6 +48,8 @@ def scene_modules(monkeypatch):
     ursina.shaders = shaders
     ursina.Texture = lambda image: image
     ursina.Sky = _ImportOnlyEntity
+    ursina.Mesh = lambda **kwargs: "mesh"
+    ursina.Cylinder = lambda **kwargs: "cylinder"
     monkeypatch.setitem(sys.modules, "ursina", ursina)
     monkeypatch.setitem(sys.modules, "ursina.shaders", shaders)
 
