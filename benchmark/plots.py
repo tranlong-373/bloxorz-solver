@@ -14,6 +14,8 @@ COLORS = {"bfs": "#2a78d6", "dfs": "#eb6834", "ucs": "#1baf7a", "astar": "#eda10
 GROUPS = ["G1", "G2", "G3", "G4", "G5"]
 ALL = "Tất cả"
 DASH = "–"
+# Mã trạng thái theo mẫu báo cáo, chỉ dùng trong bảng .md (CSV giữ nguyên status gốc)
+STATUS_CODE = {"solved": "OK", "unsolvable": "NOSOL", "timeout": "TLE"}
 DROPPED = "stage_30"  # nhóm loại màn 30 từ 21/10, không đưa vào bảng, mẫu số hay biểu đồ
 
 INK, INK2, MUTED, GRID, AXIS = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7"
@@ -121,8 +123,8 @@ def summary_md(rows):
 def detail_md(rows):
     header = ["Màn", "Nhóm", "Thuật toán", "Trạng thái", "Số nước", "Chi phí", "Nút mở rộng",
               "Thời gian (ms)", "Bộ nhớ đỉnh (KiB)"]
-    body = [[d["stage_id"], d["group"], LABELS.get(d["algorithm"], d["algorithm"]), d["status"],
-             fmt(d["length"]), fmt(d["cost"]), fmt(d["expanded"]), fmt(d["time_ms_median"], 2),
+    body = [[d["stage_id"], d["group"], LABELS.get(d["algorithm"], d["algorithm"]),
+             STATUS_CODE.get(d["status"], d["status"]), fmt(d["length"]), fmt(d["cost"]), fmt(d["expanded"]), fmt(d["time_ms_median"], 2),
              fmt(d["peak_mem_kb"])] for d in detail(rows)]
     return md_table(header, body, left=4)
 
@@ -144,7 +146,8 @@ NOTE_SUMMARY = ("Bảng theo nhóm: cột \"Giải được\" đếm số màn s
                 "thì ghi \"–\". " + UNITS + "\n")
 NOTE_DETAIL = ("Bảng từng màn: mỗi dòng là 1 lần chạy, kể cả lần không giải được. Lần không giải được vẫn ghi "
                "nút mở rộng, thời gian, bộ nhớ của chính lần chạy đó (nếu có), còn số nước và chi phí ghi \"–\". "
-               + UNITS + "\n")
+               "Cột Trạng thái: OK = giải được, NOSOL = không có lời giải, TLE = quá thời gian, "
+               "trạng thái khác ghi nguyên. " + UNITS + "\n")
 
 
 def make_tables(rows, out, original_rows=None):
