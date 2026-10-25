@@ -1,7 +1,7 @@
 """make_heuristic(stage, name): "relaxed" and "manhattan". Owner: VT5 (task 5.2)."""
 from collections import deque
 
-from bloxorz.engine.rules import ROLL, footprint  # ROLL, footprint không có trong bloxorz.engine
+from bloxorz.engine.rules import ROLL, footprint
 from bloxorz.model import Direction, Pose, State
 
 INF = float("inf")
@@ -48,12 +48,14 @@ def make_heuristic(stage, name="relaxed"):
             if s.pose is None:
                 return 2  # còn ít nhất 1 nước ghép + 1 nước đứng dậy
             key = (s.pose, s.pos)
+            # Có thể tới đích trực tiếp hoặc qua công tắc tách khối.
             return min(d_goal.get(key, INF), d_split.get(key, INF) + 2)
         return h
     if name == "manhattan":
         def h(s):
             if s.pose is None:
                 return 2
+            # Một lần lăn đi tối đa 2 ô, nên chia đôi khoảng cách Manhattan.
             best = manhattan(s.pos, stage.goal) / 2
             for p in splits:
                 best = min(best, manhattan(s.pos, p) / 2 + 2)

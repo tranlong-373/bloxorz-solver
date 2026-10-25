@@ -148,7 +148,7 @@ def run(algorithm: str, stage: Stage, limits: Limits = Limits(),
     if measure_memory and status in ("solved", "unsolvable"):
         # Keep the same Stage: its bridge_at/switch_at caches may already be warm.
         # This measures additional traced allocations, not total process memory
-        # or cold Stage setup. No heuristic cache exists in the current stubs.
+        # or cold Stage setup. Heuristic tables are rebuilt in each solver call.
         try:
             try:
                 tracemalloc.start()

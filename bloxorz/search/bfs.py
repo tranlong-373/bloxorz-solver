@@ -10,7 +10,7 @@ def bfs(stage, ctx):
     start = initial_state(stage)
     if is_goal(stage, start):
         return ()
-    parents = {start: None}  # doubles as the visited set; keyed by the whole State
+    parents = {start: None}  # vừa lưu đường đi, vừa đánh dấu trạng thái đã gặp
     queue = deque([start])
     while queue:
         s = queue.popleft()
@@ -19,7 +19,8 @@ def bfs(stage, ctx):
             if nxt in parents:
                 continue
             parents[nxt] = (s, a)
-            if is_goal(stage, nxt):  # goal test on generation: first hit is shallowest
+            # BFS xét đích khi sinh: lần gặp đầu có ít bước nhất.
+            if is_goal(stage, nxt):
                 return reconstruct(parents, nxt)
             queue.append(nxt)
     return None
