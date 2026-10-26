@@ -21,6 +21,7 @@ class FakeScene:
     def load_stage(self, stage: Stage, state: State) -> None:
         self.stage = stage
         self.state = state
+        self.selected_cube = None
         self.events.append(("load_stage", stage.id, state))
         print(f"[FakeScene] load_stage: stage={stage.id}, state={state}")
 
