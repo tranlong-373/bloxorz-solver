@@ -5,12 +5,16 @@ Owner: VT4 (tasks 4.2, 4.3, 4.5).
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from bloxorz.engine import initial_state
 from bloxorz.gui.controller import GameController
 from bloxorz.gui.fake_scene import FakeScene
 from bloxorz.gui.ui import (
     GROUP_INFO,
     NOT_AVAILABLE,
+    SLATE_LIGHT,
+    UI,
+    _rgba,
     end_screen_text,
     format_stage_title,
     get_menu_stages,
@@ -173,3 +177,18 @@ def test_select_stage_after_loss_loads_new_stage_cleanly():
     assert controller.fail_reason == ""
     assert controller.moves == 0
     assert controller.state == initial_state(stage2)
+
+
+def test_clear_solver_highlight_resets_button_colors():
+    ui = UI.__new__(UI)
+    button_bfs = SimpleNamespace(color="violet", highlight_color="", pressed_color="")
+    button_dfs = SimpleNamespace(color="violet", highlight_color="", pressed_color="")
+    ui.solver_buttons = {"bfs": button_bfs, "dfs": button_dfs}
+    ui.selected_algorithm = "bfs"
+
+    ui.clear_solver_highlight()
+
+    assert ui.selected_algorithm is None
+    assert button_bfs.color == _rgba(SLATE_LIGHT)
+    assert button_dfs.color == _rgba(SLATE_LIGHT)
+

@@ -119,9 +119,14 @@ class GameController:
             self.status = "falling"
             self.fail_reason = res.reason
             session = self._session
-            self.scene.show_fall(
-                before, action, on_done=lambda: self._set_if_current(session, "lost")
-            )
+
+            def lost() -> None:
+                self._set_if_current(session, "lost")
+
+            if res.reason in ("fell", "fragile_broke", "bridge_closed"):
+                self.scene.show_illegal_step(before, action, res, on_done=lost)
+            else:
+                self.scene.show_fall(before, action, on_done=lost)
 
     def _update_selection(self, before: State, action: Action, res: StepResult) -> None:
         """Move the selection with the cube that just moved."""

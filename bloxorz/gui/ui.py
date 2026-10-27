@@ -281,8 +281,9 @@ class UI:
     @staticmethod
     def _paint(button: Any, fill: str) -> None:
         button.color = _rgba(fill)
-        button.highlight_color = button.color.tint(0.15)
-        button.pressed_color = button.color.tint(-0.15)
+        if hasattr(button.color, "tint"):
+            button.highlight_color = button.color.tint(0.15)
+            button.pressed_color = button.color.tint(-0.15)
 
     # -- top-left status card -------------------------------------------------
 
@@ -574,6 +575,8 @@ class UI:
             return
         self.runner.cancel()
         self._cancel_requested = True
+        if hasattr(self, "clear_solver_highlight"):
+            self.clear_solver_highlight()
         if hasattr(self, "solver_status_text"):
             self.solver_status_text.text = "Đang hủy..."
             if color:
@@ -586,6 +589,12 @@ class UI:
         for name, button in self.solver_buttons.items():
             button.enabled = name in ALGORITHMS
             button.disabled = False
+
+    def clear_solver_highlight(self) -> None:
+        """Un-mark the last chosen algorithm button (back to the neutral colour)."""
+        self.selected_algorithm = None
+        for button in getattr(self, "solver_buttons", {}).values():
+            self._paint(button, SLATE_LIGHT)
 
     def _abort_solver(self, message: str) -> None:
         """Drop a running search so its late result never touches the new game."""
@@ -602,6 +611,8 @@ class UI:
         self._abort_solver("Đã hủy vì chơi lại màn")
         self.controller.restart()
         self.reset_solver_action()
+        if hasattr(self, "clear_solver_highlight"):
+            self.clear_solver_highlight()
 
     # -- win / lose screen -----------------------------------------------------------
 
@@ -776,6 +787,8 @@ class UI:
         self._show_metrics(self._empty_metrics())
         self.controller.load(stage)
         self.reset_solver_action()
+        if hasattr(self, "clear_solver_highlight"):
+            self.clear_solver_highlight()
         self.close_menu()
 
     def toggle_menu(self) -> None:
@@ -921,6 +934,9 @@ class UI:
                 self.controller.status = "playing"
             if hasattr(self, "reset_solver_action"):
                 self.reset_solver_action()
+            if not (result.status == "solved" and not cancelled):
+                if hasattr(self, "clear_solver_highlight"):
+                    self.clear_solver_highlight()
         elif not self._result_handled and self.runner.running:
             if hasattr(self, "solver_text"):
                 self.solver_text.text = "Cancelling..." if self._cancel_requested else f"Solving {self._active_algorithm}..."

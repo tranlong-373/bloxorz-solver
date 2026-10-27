@@ -55,6 +55,23 @@ class FakeScene:
         print(f"[FakeScene] show_fall: before={before}, action={action}")
         on_done()
 
+    def show_illegal_step(
+        self,
+        before: State,
+        action: Action,
+        result: Any,
+        on_done: Callable[[], None],
+    ) -> None:
+        """Mirror SceneView.show_illegal_step: 'fell' is a plain fall."""
+        if result.reason not in ("fell", "fragile_broke", "bridge_closed"):
+            raise ValueError(f"Not an illegal-move result: {result!r}")
+        if result.reason == "fell":
+            self.show_fall(before, action, on_done)
+            return
+        self.events.append(("show_illegal_step", before, action, result.reason))
+        print(f"[FakeScene] show_illegal_step: reason={result.reason}, action={action}")
+        on_done()
+
     def show_win(self, on_done: Callable[[], None]) -> None:
         self.events.append(("show_win",))
         print("[FakeScene] show_win")
