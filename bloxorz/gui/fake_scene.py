@@ -21,6 +21,7 @@ class FakeScene:
     def load_stage(self, stage: Stage, state: State) -> None:
         self.stage = stage
         self.state = state
+        self.selected_cube = None
         self.events.append(("load_stage", stage.id, state))
         print(f"[FakeScene] load_stage: stage={stage.id}, state={state}")
 
@@ -52,6 +53,23 @@ class FakeScene:
     ) -> None:
         self.events.append(("show_fall", before, action))
         print(f"[FakeScene] show_fall: before={before}, action={action}")
+        on_done()
+
+    def show_illegal_step(
+        self,
+        before: State,
+        action: Action,
+        result: Any,
+        on_done: Callable[[], None],
+    ) -> None:
+        """Mirror SceneView.show_illegal_step: 'fell' is a plain fall."""
+        if result.reason not in ("fell", "fragile_broke", "bridge_closed"):
+            raise ValueError(f"Not an illegal-move result: {result!r}")
+        if result.reason == "fell":
+            self.show_fall(before, action, on_done)
+            return
+        self.events.append(("show_illegal_step", before, action, result.reason))
+        print(f"[FakeScene] show_illegal_step: reason={result.reason}, action={action}")
         on_done()
 
     def show_win(self, on_done: Callable[[], None]) -> None:

@@ -88,6 +88,11 @@ def main() -> None:
     app = Ursina()
     window.title = "Bloxorz Solver"
     window.borderless = False
+    # Ursina's dev overlays sit in the top-right corner, on top of the toolbar.
+    for overlay in ("exit_button", "fps_counter", "entity_counter", "collider_counter", "cog_button"):
+        widget = getattr(window, overlay, None)
+        if widget is not None:
+            widget.enabled = False
 
     # Hook input and update into __main__ so Ursina dispatches directly without duplicate entities
     if "__main__" in sys.modules:

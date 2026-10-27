@@ -22,7 +22,9 @@ class GameController:
         self.stage: Stage | None = None
         self.state: State | None = None
         self.moves: int = 0
-        self.status: str = "playing"  # playing, solving, replaying, falling, lost, winning, won
+        self.status: str = "playing"  # playing, solving, replaying, falling, lost, winning, won, error
+        # Engine reason of the last loss ("fell", "fragile_broke", "bridge_closed") or replay error.
+        self.fail_reason: str = ""
         # Selected split cube, kept by cell: State reorders cubes so pos < cube2.
         self.selected_pos: Pos | None = None
         self._session = 0
@@ -45,8 +47,11 @@ class GameController:
         self.state = initial_state(stage)
         self.moves = 0
         self.status = "playing"
+        self.fail_reason = ""
         self.selected_pos = None
         self.scene.load_stage(stage, self.state)
+        if hasattr(self.scene, "set_selected"):
+            self.scene.set_selected(None)
 
     def restart(self) -> None:
         """Reload current stage to start over."""
@@ -112,10 +117,16 @@ class GameController:
         elif res.outcome == Outcome.ILLEGAL:
             before = self.state
             self.status = "falling"
+            self.fail_reason = res.reason
             session = self._session
-            self.scene.show_fall(
-                before, action, on_done=lambda: self._set_if_current(session, "lost")
-            )
+
+            def lost() -> None:
+                self._set_if_current(session, "lost")
+
+            if res.reason in ("fell", "fragile_broke", "bridge_closed"):
+                self.scene.show_illegal_step(before, action, res, on_done=lost)
+            else:
+                self.scene.show_fall(before, action, on_done=lost)
 
     def _update_selection(self, before: State, action: Action, res: StepResult) -> None:
         """Move the selection with the cube that just moved."""
@@ -219,6 +230,7 @@ class GameController:
         if result.outcome != Outcome.MOVED or result.state is None:
             self.replaying = False
             self.status = "error"
+            self.fail_reason = result.reason or "illegal"
             return
 
         self._replay_index += 1
