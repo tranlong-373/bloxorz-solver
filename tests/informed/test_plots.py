@@ -180,7 +180,7 @@ def test_empty_csv_gives_clear_error(tmp_path, capsys):
 # Charts (matplotlib is not installed on CI)
 # ---------------------------------------------------------------------------
 
-def test_main_writes_tables_and_five_charts(tmp_path):
+def test_main_writes_tables_and_six_charts(tmp_path):
     pytest.importorskip("matplotlib")
     Image = pytest.importorskip("PIL.Image")
     data = write(tmp_path / "results.csv", sample_rows())
@@ -190,7 +190,7 @@ def test_main_writes_tables_and_five_charts(tmp_path):
     tables = sorted(p.name for p in (tmp_path / "out" / "tables").iterdir())
     assert tables == ["detail.csv", "detail.md", "original.md", "summary.csv", "summary.md"]
     figures = sorted(p.name for p in (tmp_path / "out" / "figures").iterdir())
-    assert figures == ["expanded.png", "heuristics.png", "length_cost.png", "memory.png", "time.png"]
+    assert figures == ["expanded.png", "heuristics.png", "length.png", "length_cost.png", "memory.png", "time.png"]
     for name in figures:
         with Image.open(tmp_path / "out" / "figures" / name) as img:
             assert min(img.info["dpi"]) >= 150
@@ -205,7 +205,7 @@ def test_charts_when_ucs_fails_but_astar_solves(tmp_path):
             row("g1_02", "G1", "ucs", expanded="100"), row("g1_02", "G1", "astar", expanded="104"),
             row("g1_02", "G1", "astar_manhattan", expanded="100")]
     paths = plots.make_figures(rows, tmp_path)
-    assert len(paths) == 5 and all(p.stat().st_size > 0 for p in paths)
+    assert len(paths) == 6 and all(p.stat().st_size > 0 for p in paths)
 
 
 def test_two_path_stage_found_for_the_chart():
@@ -221,7 +221,7 @@ def test_charts_skip_when_csv_has_only_bfs_ucs_dfs(tmp_path, capsys):
     rows = [r for r in sample_rows() if r["algorithm"] != "astar"]
     rows += [row("g1_01", "G1", "dfs", length="45", cost="45.0")]
     paths = plots.make_figures(rows, tmp_path)
-    assert sorted(p.name for p in paths) == ["expanded.png", "length_cost.png", "memory.png", "time.png"]
+    assert sorted(p.name for p in paths) == ["expanded.png", "length.png", "length_cost.png", "memory.png", "time.png"]
     assert not (tmp_path / "heuristics.png").exists()
     assert "Bỏ qua heuristics.png" in capsys.readouterr().out
 
@@ -229,7 +229,7 @@ def test_charts_skip_when_csv_has_only_bfs_ucs_dfs(tmp_path, capsys):
 def test_charts_skip_when_nothing_to_compare(tmp_path, capsys):
     pytest.importorskip("matplotlib")
     paths = plots.make_figures([row("g1_01", "G1", "dfs")], tmp_path)
-    assert sorted(p.name for p in paths) == ["expanded.png", "memory.png", "time.png"]
+    assert sorted(p.name for p in paths) == ["expanded.png", "length.png", "memory.png", "time.png"]
     out = capsys.readouterr().out
     assert "Bỏ qua length_cost.png" in out and "Bỏ qua heuristics.png" in out
     # A* có mà thiếu UCS thì cũng không có gì để chia
