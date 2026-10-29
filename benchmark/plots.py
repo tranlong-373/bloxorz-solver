@@ -274,13 +274,16 @@ def make_figures(rows, out):
         ("time.png", "Thời gian tìm theo từng màn (trung vị, có tính xây heuristic)", "Thời gian (ms, thang log)",
          "time_ms_median"),
         ("memory.png", "Bộ nhớ đỉnh theo từng màn (tracemalloc)", "Bộ nhớ đỉnh (KiB, thang log)", "peak_mem_kb"),
+        ("length.png", "Số nước của lời giải theo từng màn", "Số nước (thang log)", "length"),
     ]
     for name, title, ylabel, key in charts:
         if not algos:
             print(f"Bỏ qua {name}: CSV không có thuật toán nào trong {', '.join(ALGOS)}")
             continue
         fig, ax = plt.subplots(figsize=(10, 4.2))
-        failed = _grouped_bars(ax, rows, stages, algos, lambda r, key=key: num(r, key), log=True)
+        # số nước chỉ vẽ khi giải được, lần thất bại chỉ có dấu x
+        failed = _grouped_bars(ax, rows, stages, algos,
+                               lambda r, key=key: num(r, key) if key != "length" or solved(r) else None, log=True)
         _stage_axis(ax, stages)
         ax.set_ylabel(ylabel)
         ax.set_title(title, pad=24)
