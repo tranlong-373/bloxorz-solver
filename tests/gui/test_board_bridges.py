@@ -168,6 +168,19 @@ def test_switch_then_bridge_events_finish_once_and_release_busy(board_module):
     assert not board.is_busy()
 
 
+def test_switch_and_bridge_sounds_play_with_their_animations(board_module, monkeypatch):
+    played = []
+    monkeypatch.setattr(board_module.sounds, "play", played.append)
+    board, _ = _built_board(board_module)
+    switch_entity, _ = board.switch_entities["sw1"][0]
+
+    board.animate_events(("switch:sw1", "bridge:b1:open"), lambda: None)
+    assert played == ["switch"]  # the bridge waits for the switch pulse
+
+    switch_entity.animations[0].finish()
+    assert played == ["switch", "bridge_open"]
+
+
 def test_closed_bridge_is_hidden_after_close_animation(board_module):
     board, stage = _built_board(board_module)
     board.show_state(

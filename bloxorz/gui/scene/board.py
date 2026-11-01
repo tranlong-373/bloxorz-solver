@@ -5,6 +5,7 @@ import time
 
 from ursina import Cylinder, Entity, color, destroy
 
+from . import sounds
 from .animate import BRIDGE_DURATION, play_fragile_break
 from .meshes import slab_mesh
 from .textures import (
@@ -284,6 +285,7 @@ class Board:
 
     def _pulse_switch(self, switch_id, on_done, generation):
         entities = self.switch_entities.get(switch_id, ())
+        sounds.play("switch")
         animations = []
         for entity, base_scale in entities:
             entity.scale = base_scale
@@ -309,6 +311,7 @@ class Board:
             on_done()
             return
 
+        sounds.play("bridge_open" if opened else "bridge_close")
         if opened:
             self._open_bridges.add(bridge_id)
             for tile in tiles:

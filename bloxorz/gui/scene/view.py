@@ -11,6 +11,7 @@ from ursina import Sky, camera, destroy, scene
 from bloxorz.engine.rules import ROLL, footprint
 from bloxorz.model import Direction, Pose, State
 
+from . import sounds
 from .animate import play_drop, play_fall, play_roll, play_split, play_win
 from .block import BlockView
 from .board import Board
@@ -78,6 +79,7 @@ class SceneView:
         self.board.build(stage)
         self.show_state(state)
         self._frame_camera(stage)
+        sounds.start_music()
 
     def _frame_camera(self, stage):
         """Look from the front-left, center the board and pull back until it fits."""
@@ -252,6 +254,13 @@ class SceneView:
             if animation_id != self._animation_id:
                 return
 
+            if before.pose is not None:
+                sounds.play("land")
+            elif result.state.pose is not None:
+                sounds.play("merge")
+            else:
+                sounds.play("land_cube")
+
             if before.pose is None:
                 # A cube moved; a merge shows the Engine's whole block.
                 self._follow_selection(before, action, result.state)
@@ -413,6 +422,7 @@ class SceneView:
             if roll_callback_called or not is_current():
                 return
             roll_callback_called = True
+            sounds.play("land" if action.cube is None else "land_cube")
             try:
                 board_effect(effect_finished)
             except Exception:
@@ -516,6 +526,8 @@ class SceneView:
 
     def set_selected(self, cube):
         """Highlight split cube 0 or 1 of the current State; None clears it."""
+        if cube is not None and cube != self.selected_cube:
+            sounds.play("select")
         self.selected_cube = cube
         state = self._state
         if cube is None or state is None or state.pose is not None:

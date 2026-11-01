@@ -23,6 +23,7 @@ Controls:
     G: Run 10 rolls ending at Goal
     W: Preview the win animation
     1/2/3: Preview block poses
+    M: Mute / unmute sound
 """
 
 import sys
@@ -42,6 +43,7 @@ from bloxorz.engine.rules import ROLL, Outcome, footprint, is_goal, step
 from bloxorz.loader import load_stage
 from bloxorz.model import Action, Direction, Pose, State
 
+from . import sounds
 from .view import SceneView
 
 
@@ -489,6 +491,11 @@ def test_fragile_safe_crossing():
 def input(key):
     global current_state, has_fallen
 
+    if key == "m":
+        sounds.set_enabled(not sounds.is_enabled())
+        set_status("Sound on" if sounds.is_enabled() else "Sound muted")
+        return
+
     # R: reset the demo after a fall.
     if key == "r":
         reset_demo()
@@ -739,7 +746,7 @@ def main():
             "Arrows: Move | T: 10 rolls | G: 10 + Goal\n"
             "F: Fall | L: Lie across F | B: Fragile break\n"
             "C: Bridge closes | Tab: Switch cube | H: Fall cases\n"
-            "W: Preview Win | R: Reset | 1/2/3: Pose"
+            "W: Preview Win | R: Reset | 1/2/3: Pose | M: Mute"
         ),
         position=(-0.85, 0.45),
         scale=0.75,
