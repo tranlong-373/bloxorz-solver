@@ -7,6 +7,8 @@ from ursina import Entity, curve, destroy, scene
 
 from bloxorz.model import Direction
 
+from . import sounds
+
 
 ROLL_DURATION = 0.25
 BRIDGE_DURATION = 0.3
@@ -16,6 +18,7 @@ SPLIT_DURATION = 0.25
 
 def play_fragile_break(tile, on_finished):
     """Collapse a fragile floor tile after Engine reports it broken."""
+    sounds.play("crack")
     animation = tile.animate_scale(
         (tile.scale_x, 0.01, tile.scale_z),
         duration=FRAGILE_BREAK_DURATION,
@@ -126,6 +129,7 @@ def play_fall(block, direction: Direction, on_finished, tip=None):
         on_finished()
 
     def drop():
+        sounds.play("fall")
         drop_animation = block.animate_y(
             FALL_TARGET_Y,
             duration=FALL_DROP_DURATION,
@@ -176,6 +180,7 @@ def play_fall(block, direction: Direction, on_finished, tip=None):
 
 def play_drop(block, on_finished):
     """Drop vertically after the block has landed on a broken fragile tile."""
+    sounds.play("fall")
     drop_animation = block.animate_y(
         FALL_TARGET_Y,
         duration=FALL_DROP_DURATION,
@@ -191,6 +196,7 @@ def play_drop(block, on_finished):
 
 def play_split(cubes, on_finished):
     """Grow the two cubes at the Engine's split targets, then finish once."""
+    sounds.play("split")
     remaining = len(cubes)
 
     def callback_for_one_cube():
@@ -225,6 +231,7 @@ WIN_DROP_DISTANCE = 2.0
 
 def play_win(block, on_finished):
     """Sink the block into the goal hole."""
+    sounds.play("win")
 
     start_y = block.y
     target_y = start_y - WIN_DROP_DISTANCE
